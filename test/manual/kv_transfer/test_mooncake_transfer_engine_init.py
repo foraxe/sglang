@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Test script for verifying init_shared_mooncake_transfer_engine functionality.
-Tests the code at model_runner.py lines 911-952.
+Test script for validating Mooncake transfer-engine gating and initialization.
+Tests the Mooncake-related branches in the current model-runner flow.
 
 This test verifies:
 1. MooncakeTransferEngine initialization conditions
@@ -9,11 +9,8 @@ This test verifies:
 3. Mooncake transfer engine initialization with hostname, gpu_id, and ib_device
 
 Usage:
-    # Run on 2 GPUs from project root
+    # Run from project root on 2 GPUs
     CUDA_VISIBLE_DEVICES=0,1 python test/manual/kv_transfer/test_mooncake_transfer_engine_init.py
-    
-    # With strict mode (will fail if mooncake is not available)
-    CUDA_VISIBLE_DEVICES=0,1 python test/manual/kv_transfer/test_mooncake_transfer_engine_init.py --strict
 """
 
 import argparse
@@ -77,7 +74,7 @@ def test_mooncake_te_condition(server_args: ServerArgs) -> bool:
 
 
 def run_mooncake_init(rank: int, world_size: int, master_port: int, args: argparse.Namespace,
-                      server_args: ServerArgs) -> bool:
+                      server_args: ServerArgs):
     """Worker function for testing mooncake transfer engine initialization."""
     os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
     os.environ["MASTER_ADDR"] = "127.0.0.1"
@@ -85,10 +82,13 @@ def run_mooncake_init(rank: int, world_size: int, master_port: int, args: argpar
     os.environ["RANK"] = str(rank)
     os.environ["WORLD_SIZE"] = str(world_size)
     os.environ["LOCAL_RANK"] = str(rank)
-    
+
+    # Import before try block to avoid NameError in finally
     import torch
     import torch.distributed as dist
-    
+
+    dist_initialized = False
+
     try:
         # Initialize distributed environment
         print(f"[Rank {rank}] Initializing distributed environment...")
@@ -97,67 +97,63 @@ def run_mooncake_init(rank: int, world_size: int, master_port: int, args: argpar
             world_size=world_size,
             rank=rank,
             init_method=f"tcp://127.0.0.1:{master_port}",
+            device_id=rank,
         )
-        
+        dist_initialized = True
+
         # Set device
         torch.cuda.set_device(rank)
-        
+
         # Sync to ensure all ranks are ready
         dist.barrier()
         print(f"[Rank {rank}] Distributed initialization complete.")
-        
+
         # Test the condition logic
         use_mooncake_te = test_mooncake_te_condition(server_args)
         print(f"[Rank {rank}] use_mooncake_te = {use_mooncake_te}")
-        
+
         if use_mooncake_te:
             print(f"[Rank {rank}] Attempting to initialize MooncakeTransferEngine...")
-            
-            # Import and initialize mooncake transfer engine
+
             from sglang.srt.distributed.device_communicators.mooncake_transfer_engine import (
                 init_mooncake_transfer_engine,
             )
             from sglang.srt.utils import get_local_ip_auto
-            
+
             ib_device = (
                 server_args.disaggregation_ib_device
                 or server_args.mooncake_ib_device
             )
-            
+
             print(f"[Rank {rank}] IB device: {ib_device}")
-            
-            if args.strict:
-                # Strict mode: actually initialize mooncake
-                init_mooncake_transfer_engine(
-                    hostname=get_local_ip_auto(),
-                    gpu_id=rank,
-                    ib_device=ib_device,
-                )
-                print(f"[Rank {rank}] MooncakeTransferEngine initialized successfully!")
-            else:
-                # Mock mode: just verify the import works
-                print(f"[Rank {rank}] MooncakeTransferEngine import successful (mock mode)")
-            
+
+            # Always actually initialize mooncake
+            engine = init_mooncake_transfer_engine(
+                hostname=get_local_ip_auto(),
+                gpu_id=rank,
+                ib_device=ib_device,
+            )
+            print(f"[Rank {rank}] Session ID: {engine.get_session_id()}")
+            print(f"[Rank {rank}] MooncakeTransferEngine initialized successfully!")
+
             dist.barrier()
-        
+
         print(f"[Rank {rank}] Test completed successfully!")
-        return True
-        
+        sys.exit(0)
+
     except ImportError as e:
         print(f"[Rank {rank}] Mooncake not available (ImportError): {e}")
-        if args.strict:
-            raise
-        return True  # Non-strict mode: this is OK
-        
+        sys.exit(1)
+
     except Exception as e:
         print(f"[Rank {rank}] Test failed with error: {e}")
         import traceback
         traceback.print_exc()
-        return False
-        
+        sys.exit(1)
+
     finally:
         # Cleanup
-        if dist.is_initialized():
+        if dist_initialized and dist.is_initialized():
             dist.destroy_process_group()
         print(f"[Rank {rank}] Process group destroyed.")
 
@@ -185,9 +181,8 @@ def run_test(args: argparse.Namespace, server_args: ServerArgs) -> bool:
         sys.exit(1)
     
     print(f"Testing with {world_size} GPUs: {cuda_devices}")
-    print(f"Strict mode: {args.strict}")
     print()
-    
+
     # Print server args configuration
     print("ServerArgs configuration:")
     for key, value in vars(server_args).items():
@@ -244,73 +239,106 @@ def test_condition_logic():
     print("=" * 60)
     print()
     
-    test_cases = [
-        # (name, server_args, expected_result)
-        (
-            "PD disaggregation with mooncake",
-            ServerArgs(disaggregation_mode="prefill", disaggregation_transfer_backend="mooncake"),
-            True,
-        ),
-        (
-            "PD disaggregation without mooncake",
-            ServerArgs(disaggregation_mode="prefill", disaggregation_transfer_backend="other"),
-            False,
-        ),
-        (
-            "No disaggregation",
-            ServerArgs(),
-            False,
-        ),
-        (
-            "HiCache with mooncake (env=False)",
-            ServerArgs(enable_hierarchical_cache=True, hicache_storage_backend="mooncake"),
-            False,  # env var is False by default
-        ),
-        (
-            "Encoder only with mooncake",
-            ServerArgs(encoder_only=True, encoder_transfer_backend="mooncake"),
-            True,
-        ),
-        (
-            "Language only with mooncake",
-            ServerArgs(language_only=True, encoder_transfer_backend="mooncake"),
-            True,
-        ),
-        (
-            "Elastic expert backup with backend",
-            ServerArgs(enable_elastic_expert_backup=True, elastic_ep_backend="mooncake"),
-            True,
-        ),
-        (
-            "Elastic expert backup without backend",
-            ServerArgs(enable_elastic_expert_backup=True, elastic_ep_backend=None),
-            False,
-        ),
-    ]
-    
-    # Set env var for HiCache test
-    os.environ["SGLANG_HICACHE_MOONCAKE_REUSE_TE"] = "1"
-    test_cases[3] = (
-        "HiCache with mooncake (env=True)",
-        ServerArgs(enable_hierarchical_cache=True, hicache_storage_backend="mooncake"),
-        True,
-    )
-    
+    original_hicache_reuse = os.environ.get("SGLANG_HICACHE_MOONCAKE_REUSE_TE")
     passed = 0
     failed = 0
-    
-    for name, server_args, expected in test_cases:
-        result = test_mooncake_te_condition(server_args)
-        status = "✓ PASS" if result == expected else "✗ FAIL"
-        
-        if result == expected:
-            passed += 1
+
+    try:
+        test_cases = [
+            # (name, env_value, server_args, expected_result)
+            (
+                "PD disaggregation with mooncake",
+                None,
+                ServerArgs(
+                    disaggregation_mode="prefill",
+                    disaggregation_transfer_backend="mooncake",
+                ),
+                True,
+            ),
+            (
+                "PD disaggregation without mooncake",
+                None,
+                ServerArgs(
+                    disaggregation_mode="prefill",
+                    disaggregation_transfer_backend="other",
+                ),
+                False,
+            ),
+            (
+                "No disaggregation",
+                None,
+                ServerArgs(),
+                False,
+            ),
+            (
+                "HiCache with mooncake (env=False)",
+                "0",
+                ServerArgs(
+                    enable_hierarchical_cache=True,
+                    hicache_storage_backend="mooncake",
+                ),
+                False,
+            ),
+            (
+                "HiCache with mooncake (env=True)",
+                "1",
+                ServerArgs(
+                    enable_hierarchical_cache=True,
+                    hicache_storage_backend="mooncake",
+                ),
+                True,
+            ),
+            (
+                "Encoder only with mooncake",
+                None,
+                ServerArgs(encoder_only=True, encoder_transfer_backend="mooncake"),
+                True,
+            ),
+            (
+                "Language only with mooncake",
+                None,
+                ServerArgs(language_only=True, encoder_transfer_backend="mooncake"),
+                True,
+            ),
+            (
+                "Elastic expert backup with backend",
+                None,
+                ServerArgs(
+                    enable_elastic_expert_backup=True,
+                    elastic_ep_backend="mooncake",
+                ),
+                True,
+            ),
+            (
+                "Elastic expert backup without backend",
+                None,
+                ServerArgs(enable_elastic_expert_backup=True, elastic_ep_backend=None),
+                False,
+            ),
+        ]
+
+        for name, env_value, server_args, expected in test_cases:
+            if env_value is None:
+                os.environ.pop("SGLANG_HICACHE_MOONCAKE_REUSE_TE", None)
+            else:
+                os.environ["SGLANG_HICACHE_MOONCAKE_REUSE_TE"] = env_value
+
+            result = test_mooncake_te_condition(server_args)
+            status = "PASS" if result == expected else "FAIL"
+
+            if result == expected:
+                passed += 1
+            else:
+                failed += 1
+
+            print(f"{status}: {name}")
+            print(f"       Expected: {expected}, Got: {result}")
+            print()
+    finally:
+        if original_hicache_reuse is None:
+            os.environ.pop("SGLANG_HICACHE_MOONCAKE_REUSE_TE", None)
         else:
-            failed += 1
-        
-        print(f"{status}: {name}")
-        print(f"       Expected: {expected}, Got: {result}")
-        print()
+            os.environ["SGLANG_HICACHE_MOONCAKE_REUSE_TE"] = original_hicache_reuse
     
     print(f"Condition logic tests: {passed} passed, {failed} failed")
     print()
@@ -320,7 +348,7 @@ def test_condition_logic():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Test init_shared_mooncake_transfer_engine functionality"
+        description="Validate Mooncake transfer-engine gating and initialization"
     )
     parser.add_argument(
         "--cuda-visible-devices",
@@ -329,18 +357,13 @@ def main():
         help="CUDA visible devices (default: 0,1)",
     )
     parser.add_argument(
-        "--strict",
-        action="store_true",
-        help="Strict mode: actually initialize mooncake (will fail if not available)",
-    )
-    parser.add_argument(
         "--test-case",
         type=str,
         choices=["pd_disaggregation", "hicache", "encoder_only", "language_only", "elastic_ep"],
         default="pd_disaggregation",
         help="Test case to run",
     )
-    
+
     args = parser.parse_args()
     
     print("=" * 60)
