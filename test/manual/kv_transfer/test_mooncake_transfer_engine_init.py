@@ -19,7 +19,9 @@ import os
 import sys
 import time
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Optional
+from unittest.mock import patch
 
 
 @dataclass
@@ -42,38 +44,31 @@ class ServerArgs:
 def test_mooncake_te_condition(server_args: ServerArgs) -> bool:
     """
     Test the condition logic for using MooncakeTransferEngine.
-    This mirrors the logic in model_runner.py lines 917-935.
     """
-    # Use os.environ directly to avoid import issues
-    hicache_mooncake_reuse_te = os.environ.get(
-        "SGLANG_HICACHE_MOONCAKE_REUSE_TE", "1"
-    ).lower() in ("1", "true", "yes")
+    from sglang.srt.model_executor.model_runner import ModelRunner
 
-    use_mooncake_te = (
-        (
-            server_args.disaggregation_mode != "null"
-            and server_args.disaggregation_transfer_backend == "mooncake"
-        )
-        or (
-            server_args.enable_hierarchical_cache
-            and server_args.hicache_storage_backend == "mooncake"
-            and hicache_mooncake_reuse_te
-        )
-        or (
-            server_args.encoder_only
-            and server_args.encoder_transfer_backend == "mooncake"
-        )
-        or (
-            server_args.language_only
-            and server_args.encoder_transfer_backend == "mooncake"
-        )
-        or (
-            server_args.enable_elastic_expert_backup
-            and server_args.elastic_ep_backend is not None
-        )
-    )
+    dummy_runner = SimpleNamespace(server_args=server_args, gpu_id=0)
+    init_called = False
 
-    return use_mooncake_te
+    def _fake_init_mooncake_transfer_engine(*, hostname, gpu_id, ib_device):
+        nonlocal init_called
+        init_called = True
+        return SimpleNamespace(
+            hostname=hostname,
+            gpu_id=gpu_id,
+            ib_device=ib_device,
+        )
+
+    with patch(
+        "sglang.srt.distributed.device_communicators.mooncake_transfer_engine.init_mooncake_transfer_engine",
+        side_effect=_fake_init_mooncake_transfer_engine,
+    ), patch(
+        "sglang.srt.model_executor.model_runner.get_local_ip_auto",
+        return_value="127.0.0.1",
+    ):
+        ModelRunner.init_shared_mooncake_transfer_engine(dummy_runner)
+
+    return init_called
 
 
 def run_mooncake_init(
