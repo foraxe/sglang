@@ -311,7 +311,7 @@ class SchedulerRuntimeCheckerMixin:
         if self.disaggregation_mode == DisaggregationMode.DECODE:
             expected_free = req_total_size
         else:
-            expected_free = req_total_size - 1
+            expected_free = req_total_size
         if len(self.req_to_token_pool.free_slots) != expected_free:
             msg = (
                 "req_to_token_pool memory leak detected!"
