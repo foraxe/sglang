@@ -28,9 +28,11 @@ def get_paged_mqa_logits_metadata_chunked(
     num_sms: int,
 ) -> Union[_PagedMqaLogitsMetadata, torch.Tensor]:
     chunk_size = envs.SGLANG_OPT_DG_PAGED_MQA_LOGITS_CHUNK_SIZE.get()
+    if chunk_size == -1:
+        chunk_size = envs.SGLANG_DSV4_PREFILL_METADATA_CHUNK_SIZE.get()
     batch_size = context_lens.shape[0]
 
-    if batch_size <= chunk_size:
+    if chunk_size <= 0 or batch_size <= chunk_size:
         return deep_gemm.get_paged_mqa_logits_metadata(
             context_lens.unsqueeze(-1) if context_lens.dim() == 1 else context_lens,
             block_kv,

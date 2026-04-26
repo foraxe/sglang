@@ -150,7 +150,7 @@ def _flash_mla_with_optional_prefill_chunking(
     runner: Callable = flash_mla_with_kvcache_entrypoint,
 ) -> torch.Tensor:
     q = input_dict["q"]
-    chunk_size = envs.SGLANG_DSV4_FLASHMLA_PREFILL_CHUNK_SIZE.get()
+    chunk_size = envs.SGLANG_DSV4_PREFILL_METADATA_CHUNK_SIZE.get()
     if (
         chunk_size <= 0
         or not forward_mode.is_extend()
@@ -167,6 +167,7 @@ def _flash_mla_with_optional_prefill_chunking(
             end=min(start + chunk_size, total_rows),
             total_rows=total_rows,
         )
+        chunk["tile_scheduler_metadata"] = _create_flashmla_metadata()
         outputs.append(runner(**chunk, backend=backend)[0])
     return torch.cat(outputs, dim=0)
 

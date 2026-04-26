@@ -1,13 +1,19 @@
 import torch
 
-from sglang.srt.layers.attention.deepseek_v4_backend_radix import (
-    _flash_mla_with_optional_prefill_chunking,
-)
+import sglang.srt.layers.attention.deepseek_v4_backend_radix as dsv4_radix
 from sglang.srt.model_executor.forward_batch_info import ForwardMode
 
 
 def test_dsv4_flashmla_prefill_chunking_slices_row_tensors(monkeypatch):
-    monkeypatch.setenv("SGLANG_DSV4_FLASHMLA_PREFILL_CHUNK_SIZE", "4")
+    monkeypatch.setenv("SGLANG_DSV4_PREFILL_METADATA_CHUNK_SIZE", "4")
+    created_metadata = []
+
+    def fake_metadata():
+        metadata = object()
+        created_metadata.append(metadata)
+        return metadata
+
+    monkeypatch.setattr(dsv4_radix, "_create_flashmla_metadata", fake_metadata)
 
     calls = []
 
@@ -19,6 +25,7 @@ def test_dsv4_flashmla_prefill_chunking_slices_row_tensors(monkeypatch):
                 "topk_length": kwargs["topk_length"].clone(),
                 "k_cache_shape": kwargs["k_cache"].shape,
                 "backend": kwargs["backend"],
+                "tile_scheduler_metadata": kwargs["tile_scheduler_metadata"],
             }
         )
         return (kwargs["q"] + 1,)
@@ -32,7 +39,7 @@ def test_dsv4_flashmla_prefill_chunking_slices_row_tensors(monkeypatch):
         "extra_topk_length": None,
     }
 
-    out = _flash_mla_with_optional_prefill_chunking(
+    out = dsv4_radix._flash_mla_with_optional_prefill_chunking(
         input_dict=input_dict,
         backend="kernel",
         forward_mode=ForwardMode.EXTEND,
@@ -46,10 +53,12 @@ def test_dsv4_flashmla_prefill_chunking_slices_row_tensors(monkeypatch):
     assert [call["topk_length"].shape[0] for call in calls] == [4, 4, 2]
     assert all(call["k_cache_shape"] == input_dict["k_cache"].shape for call in calls)
     assert all(call["backend"] == "kernel" for call in calls)
+    assert [call["tile_scheduler_metadata"] for call in calls] == created_metadata
+    assert len(set(map(id, created_metadata))) == 3
 
 
 def test_dsv4_flashmla_chunking_is_prefill_only(monkeypatch):
-    monkeypatch.setenv("SGLANG_DSV4_FLASHMLA_PREFILL_CHUNK_SIZE", "4")
+    monkeypatch.setenv("SGLANG_DSV4_PREFILL_METADATA_CHUNK_SIZE", "4")
 
     calls = []
 
@@ -66,7 +75,7 @@ def test_dsv4_flashmla_chunking_is_prefill_only(monkeypatch):
         "extra_topk_length": None,
     }
 
-    _flash_mla_with_optional_prefill_chunking(
+    dsv4_radix._flash_mla_with_optional_prefill_chunking(
         input_dict=input_dict,
         backend="kernel",
         forward_mode=ForwardMode.DECODE,
