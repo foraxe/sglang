@@ -10,4 +10,6 @@
 8. Validate fused-shared tail-kernel contract shape | Done
 9. Check live fused-shared availability for DSv4 2604B FP4 | Done
 10. Prepare full TP=4 baseline vs TileKernels profile runner | Done
-11. Execute full TP=4 baseline vs TileKernels profile runner | Blocked
+11. Execute full TP=4 baseline vs TileKernels no-profile A/B | Done
+12. Diagnose HTTP profiler stall on TP4 4096+2 | Done
+13. Root-cause TileKernels full-run output mismatch | Done

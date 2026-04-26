@@ -272,7 +272,7 @@ Result:
 
 Subagent `019dca54-b6af-7bb1-85d3-2f3ab25fdff3` reviewed the fused-shared contract and agreed that scale/id/order semantics match the target DSv4 shape. It flagged a real EPLB edge: a routed-only logical-to-physical dispatch table may not contain the appended shared id `256`. The patch now maps only routed columns and leaves the appended shared id unchanged; the CUDA test includes a regression for that case.
 
-### 2026-04-26 TP4 A/B Preparation
+### 2026-04-26 TP4 A/B Preparation And Live Run
 
 Checked whether the new fused-shared tail-kernel path is live for the current GB200 DSv4 FP4 launch.
 
@@ -298,23 +298,84 @@ bash -n scripts/run_gb200_tilekernel_tp4_ab.sh
 
 Result: passed.
 
-Live execution blocked:
+The first live run after kubeconfig refresh found wrapper bugs:
+
+- `kubectl exec` needed `-i` for heredoc stdin.
+- The host `nerdctl` container needed `-v /data:/data`.
+- `kubectl cp` failed because the debug container lacks `tar`; use `chroot /host cat` instead.
+- SGLang profile activities must use `GPU`, not `CUDA`.
+
+The corrected no-profile TP=4 `4096+2` A/B completed:
 
 ```text
-kubectl get pod dsv4-gb200-hostdebug -o wide
-Unable to connect to the server: remote error: tls: expired certificate
-
-client cert:
-notAfter=Apr 26 15:24:58 2026 GMT
+baseline:   HTTP 200, output_ids=[85, 41819], elapsed=150.313959s
+tilekernel: HTTP 200, output_ids=[85, 294],   elapsed=151.725087s
 ```
 
-Direct SSH fallback also failed:
+Repeat run:
 
 ```text
-ssh: Could not resolve hostname gpuidi14aaf1029.idi1
+baseline:   HTTP 200, output_ids=[85, 41819], elapsed=149.063426s
+tilekernel: HTTP 200, output_ids=[85, 223],   elapsed=150.563848s
 ```
 
-Next live command after kubeconfig refresh:
+Artifacts:
+
+```text
+artifacts/dsv4_tilekernel_router_tp4_ab_noprofile/dsv4_tilekernel_router_tp4_ab_noprofile.tgz
+SHA256 fecaa277019c89fa2bebb0ad4e183c1cfe47dda0452463c878987d0fc00574db
+
+artifacts/dsv4_tilekernel_router_repeat/dsv4_tilekernel_router_repeat.tgz
+SHA256 1a96c66bfb308de6d47affe6ba33d88bf6977ee23aaedd5f6c9ae0ef1eb55e76
+```
+
+Initial conclusion:
+
+- Baseline is stable.
+- TileKernels output diverges and is not stable across runs.
+- TileKernels does not improve first-request latency in this setup.
+- Do not make an SGLang PR for this router path yet.
+
+Root cause found:
+
+```text
+tp_rank 0 id_diff 0     neg_ids 0
+tp_rank 1 id_diff 24576 neg_ids 24576
+tp_rank 2 id_diff 24576 neg_ids 24576
+tp_rank 3 id_diff 24576 neg_ids 24576
+```
+
+TileKernels was using its TP-rank arguments to filter routed ids, while SGLang expects `select_experts` to return logical global expert ids on every TP rank. The wrapper now passes `tp_rank=0,num_tp_ranks=1` into TileKernels and lets the SGLang MoE runner handle TP distribution later.
+
+Validation after fix:
+
+```text
+GB200 CUDA unit: 12 passed, 3 warnings in 14.30s
+
+TP4 baseline:   HTTP 200, output_ids=[85, 41819], elapsed=149.162440s
+TP4 tilekernel: HTTP 200, output_ids=[85, 41819], elapsed=151.402142s
+```
+
+Post-fix artifact:
+
+```text
+artifacts/dsv4_tilekernel_router_tp4_ab_noprofile/dsv4_tilekernel_router_tp4_ab.tgz
+SHA256 ecc5a6cdccd70886c3a20dac36a4fa21559871d7263241895d906a5572fefcea
+```
+
+Updated conclusion:
+
+- Correctness root problem is fixed for the TP=4 live path.
+- TileKernels still does not show a first-request latency win.
+- Keep this as a private experiment until warmed/profiled evidence shows real value.
+
+HTTP profile attempt:
+
+- Correct profile start payload is `{"activities":["CPU","GPU"], ...}`.
+- With profile active, the TP=4 `4096+2` request stalled after the prefill-admission log.
+- The same no-profile request completed, so profile stall is separate from router correctness.
+
+Current runner command:
 
 ```bash
 cd /Users/nyx/projects/0explore/dsv4/sglang-dsv4-tilekernel-router

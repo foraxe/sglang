@@ -156,6 +156,94 @@ kubectl: remote error: tls: expired certificate
 
 No direct SSH fallback to `gpuidi14aaf1029.idi1` resolved from this Mac.
 
+## TP4 A/B Evidence After Kube Refresh
+
+The first wrapper failed for process reasons, not runtime reasons:
+
+- missing `kubectl exec -i`, so the heredoc never reached remote `bash -s`;
+- missing `-v /data:/data`, so the model path was treated as a HuggingFace repo id;
+- profile payload used `CUDA`, but SGLang expects `GPU`;
+- `kubectl cp` is unsuitable for this debug pod because the debug container lacks `tar`.
+
+The runner has been rewritten around the validated path:
+
+- `kubectl exec -i ... chroot /host ... bash -s`;
+- host artifact copy via `chroot /host cat`;
+- `/data:/data` mounted into the host `nerdctl` container;
+- no-profile A/B by default; `PROFILE=1` remains available but is not the current correctness path.
+
+Validated no-profile TP=4 `4096+2` evidence:
+
+```text
+baseline run 1:   output_ids=[85, 41819], elapsed=150.313959s
+baseline repeat:  output_ids=[85, 41819], elapsed=149.063426s
+tilekernel run 1: output_ids=[85, 294],   elapsed=151.725087s
+tilekernel repeat:output_ids=[85, 223],   elapsed=150.563848s
+```
+
+Artifacts:
+
+```text
+artifacts/dsv4_tilekernel_router_tp4_ab_noprofile/dsv4_tilekernel_router_tp4_ab_noprofile.tgz
+SHA256 fecaa277019c89fa2bebb0ad4e183c1cfe47dda0452463c878987d0fc00574db
+
+artifacts/dsv4_tilekernel_router_repeat/dsv4_tilekernel_router_repeat.tgz
+SHA256 1a96c66bfb308de6d47affe6ba33d88bf6977ee23aaedd5f6c9ae0ef1eb55e76
+```
+
+Initial interpretation:
+
+- The baseline path is stable for this prompt.
+- The TileKernels router path changes generation output and was not internally stable across two runs.
+- Latency is not better enough to justify accepting correctness risk.
+- Therefore `SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE=1` is not PR-ready and should remain a private unsafe experiment.
+
+Root cause:
+
+- SGLang's `select_experts` contract returns logical global expert ids on every TP rank.
+- TileKernels' `top2_sum_gate` interprets `tp_rank` / `num_tp_ranks` as a filtering contract.
+- In a synthetic DSv4-shaped TP test, `tp_rank=0,tp_size=4` matched reference, but ranks `1..3` returned all `-1` ids:
+
+```text
+tp_rank 0 id_diff 0     neg_ids 0
+tp_rank 1 id_diff 24576 neg_ids 24576
+tp_rank 2 id_diff 24576 neg_ids 24576
+tp_rank 3 id_diff 24576 neg_ids 24576
+```
+
+Fix:
+
+- Pass `tp_rank=0`, `num_tp_ranks=1` to TileKernels from the SGLang wrapper.
+- Keep EP rank/world-size unchanged.
+- Add a CUDA regression where SGLang's mocked TP rank is `3/4` and the TileKernels wrapper must still match the global reference.
+
+Post-fix validation:
+
+```text
+GB200 CUDA unit: 12 passed, 3 warnings in 14.30s
+TP4 baseline:   output_ids=[85, 41819], elapsed=149.162440s
+TP4 tilekernel: output_ids=[85, 41819], elapsed=151.402142s
+```
+
+Post-fix artifact:
+
+```text
+artifacts/dsv4_tilekernel_router_tp4_ab_noprofile/dsv4_tilekernel_router_tp4_ab.tgz
+SHA256 ecc5a6cdccd70886c3a20dac36a4fa21559871d7263241895d906a5572fefcea
+```
+
+Updated interpretation:
+
+- Correctness mismatch root cause is fixed for TP=4.
+- The first-request A/B still does not show a speedup.
+- This can be kept as a corrected private experiment, but it is still not a strong upstream PR candidate without a warmed throughput/profile result showing value.
+
+HTTP profiling note:
+
+- `/start_profile` returns correctly when called with `activities=["CPU", "GPU"]`.
+- A profiled TP=4 `4096+2` request stalled after the prefill-admission log with GPU utilization at 0.
+- No-profile TP=4 `4096+2` completes. Treat the profile stall as a separate profiler/JIT interaction, not as evidence for TileKernels performance.
+
 ## PR Decision Boundary
 
 Do not frame the TileKernels router branch as production PR-ready yet. The evidence so far is:
@@ -163,9 +251,9 @@ Do not frame the TileKernels router branch as production PR-ready yet. The evide
 - small CUDA unit/integration tests pass;
 - four-layer TP=1 smoke runs;
 - prior small A/B did not show speedup;
-- full TP=4 A/B profile is prepared but blocked on GB200 access.
+- full TP=4 no-profile A/B initially exposed a correctness mismatch; the TP contract fix now restores matching output but still shows no speedup.
 
-A credible PR needs full TP=4 evidence showing either router-time improvement or a clear maintainability/compatibility reason. If TP=4 profiling is neutral or slower, keep this as a private experiment and do not spend review bandwidth upstream.
+A credible PR needs full TP=4 evidence showing both correctness preservation and a router-time improvement or a clear maintainability/compatibility reason. Current evidence restores correctness but still fails the performance/value bar.
 
 ## Separation From FlashMLA Rootfix
 

@@ -202,6 +202,37 @@ def test_select_experts_tilekernel_dsv4_path_matches_sglang_contract(monkeypatch
     assert torch.allclose(topk_weights, ref_weights)
 
 
+def test_tilekernel_dsv4_top2_gate_ignores_tensor_parallel_rank(monkeypatch):
+    monkeypatch.setattr(topk_mod, "get_moe_expert_parallel_rank", lambda: 0)
+    monkeypatch.setattr(topk_mod, "get_moe_expert_parallel_world_size", lambda: 1)
+    monkeypatch.setattr(topk_mod, "get_moe_tensor_parallel_rank", lambda: 3)
+    monkeypatch.setattr(topk_mod, "get_moe_tensor_parallel_world_size", lambda: 4)
+
+    torch.manual_seed(20260428)
+    router_logits = torch.randn((4096, 256), dtype=torch.float32, device="cuda")
+    correction_bias = torch.randn((256,), dtype=torch.float32, device="cuda")
+
+    topk_weights, topk_ids = tilekernel_dsv4_top2_sum_gate(
+        router_logits=router_logits,
+        correction_bias=correction_bias,
+        num_topk=6,
+        num_topk_groups=8,
+        num_groups=8,
+        num_fused_shared_experts=0,
+        routed_scaling_factor=1.5,
+        scoring_func="sqrtsoftplus",
+        apply_routed_scaling_factor_on_output=False,
+    )
+    ref_weights, ref_ids = _reference_dsv4_top2_gate(
+        router_logits, correction_bias, 6, 1.5, False
+    )
+
+    topk_weights, topk_ids = _canonicalize(topk_weights, topk_ids)
+    ref_weights, ref_ids = _canonicalize(ref_weights, ref_ids)
+    assert torch.equal(topk_ids, ref_ids)
+    assert torch.allclose(topk_weights, ref_weights)
+
+
 def test_select_experts_tilekernel_dsv4_fused_shared_tail_matches_contract(
     monkeypatch,
 ):

@@ -1210,8 +1210,10 @@ def tilekernel_dsv4_top2_sum_gate(
         scale,
         get_moe_expert_parallel_rank(),
         get_moe_expert_parallel_world_size(),
-        get_moe_tensor_parallel_rank(),
-        get_moe_tensor_parallel_world_size(),
+        # SGLang's select_experts contract returns logical global expert ids on
+        # every TP rank. The MoE runner handles TP distribution after routing.
+        0,
+        1,
         scoring_func,
     )
 
