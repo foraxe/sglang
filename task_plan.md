@@ -1,0 +1,8 @@
+# DSv4 TileKernels Router Experiment Plan
+
+1. Isolate SGLang worktree from known-good reqpool baseline | Done
+2. Wire opt-in TileKernels DSv4 top2 gate path | Done
+3. Validate TileKernels helper and select_experts integration unit | Done
+4. Smoke DSv4 four-layer server on GB200 | Done
+5. Archive evidence and record risks | Done
+

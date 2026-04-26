@@ -36,7 +36,13 @@ except ImportError:
     pass
 
 from sglang.jit_kernel.deepseek_v4 import mask_topk_ids
-from sglang.srt.distributed import get_tp_group
+from sglang.srt.distributed import (
+    get_moe_expert_parallel_rank,
+    get_moe_expert_parallel_world_size,
+    get_moe_tensor_parallel_rank,
+    get_moe_tensor_parallel_world_size,
+    get_tp_group,
+)
 from sglang.srt.distributed.device_communicators.pynccl_allocator import (
     use_symmetric_memory,
 )
@@ -1016,26 +1022,45 @@ def select_experts(
     elif custom_routing_function is None:
         assert not apply_routed_scaling_factor_on_output, "Not implemented"
         if scoring_func == "sqrtsoftplus":
-            if envs.SGLANG_OPT_USE_JIT_KERNEL_FUSED_TOPK.get():
-                from sglang.srt.layers.moe.deepseek_v4_topk import (
-                    biased_topk_jit_kernel_impl as biased_topk_impl,
+            if envs.SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE.get():
+                topk_weights, topk_ids = tilekernel_dsv4_top2_sum_gate(
+                    router_logits=router_logits,
+                    correction_bias=correction_bias,
+                    num_topk=num_routed_topk,
+                    num_topk_groups=topk_group,
+                    num_groups=num_expert_group,
+                    num_fused_shared_experts=num_fused_shared_experts,
+                    routed_scaling_factor=routed_scaling_factor,
+                    scoring_func=scoring_func,
+                    apply_routed_scaling_factor_on_output=apply_routed_scaling_factor_on_output,
                 )
+                topk_ids = topk_ids_logical_to_physical(
+                    topk_ids, expert_location_dispatch_info
+                )
+                _mask_topk_ids_padded_region(topk_ids, num_token_non_padded)
             else:
-                from sglang.srt.layers.moe.deepseek_v4_topk import biased_topk_impl
+                if envs.SGLANG_OPT_USE_JIT_KERNEL_FUSED_TOPK.get():
+                    from sglang.srt.layers.moe.deepseek_v4_topk import (
+                        biased_topk_jit_kernel_impl as biased_topk_impl,
+                    )
+                else:
+                    from sglang.srt.layers.moe.deepseek_v4_topk import (
+                        biased_topk_impl,
+                    )
 
-            topk_weights, topk_ids = biased_topk_impl(
-                hidden_states=hidden_states,
-                gating_output=router_logits,
-                correction_bias=correction_bias,
-                topk=num_routed_topk if _use_aiter else top_k,
-                renormalize=renormalize,
-                scoring_func=scoring_func,
-                num_fused_shared_experts=num_fused_shared_experts,
-                routed_scaling_factor=routed_scaling_factor,
-                num_token_non_padded=num_token_non_padded,
-                expert_location_dispatch_info=expert_location_dispatch_info,
-                apply_routed_scaling_factor_on_output=apply_routed_scaling_factor_on_output,
-            )
+                topk_weights, topk_ids = biased_topk_impl(
+                    hidden_states=hidden_states,
+                    gating_output=router_logits,
+                    correction_bias=correction_bias,
+                    topk=num_routed_topk if _use_aiter else top_k,
+                    renormalize=renormalize,
+                    scoring_func=scoring_func,
+                    num_fused_shared_experts=num_fused_shared_experts,
+                    routed_scaling_factor=routed_scaling_factor,
+                    num_token_non_padded=num_token_non_padded,
+                    expert_location_dispatch_info=expert_location_dispatch_info,
+                    apply_routed_scaling_factor_on_output=apply_routed_scaling_factor_on_output,
+                )
         else:
             topk_weights, topk_ids = fused_topk(
                 hidden_states=hidden_states,
@@ -1090,6 +1115,92 @@ def select_experts(
         topk_ids=topk_ids,
     )
     return StandardTopKOutput(topk_weights, topk_ids, router_logits)
+
+
+def tilekernel_dsv4_top2_sum_gate(
+    *,
+    router_logits: torch.Tensor,
+    correction_bias: Optional[torch.Tensor],
+    num_topk: int,
+    num_topk_groups: Optional[int],
+    num_groups: Optional[int],
+    num_fused_shared_experts: int,
+    routed_scaling_factor: Optional[float],
+    scoring_func: str,
+    apply_routed_scaling_factor_on_output: bool,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Opt-in DSv4 router experiment backed by TileKernels.
+
+    TileKernels returns routed weights with the routed scaling factor already
+    applied. SGLang normally keeps that scaling outside top-k for this path, so
+    undo it unless the caller explicitly asked to fuse routed scaling into top-k
+    output.
+    """
+
+    if num_fused_shared_experts != 0:
+        raise RuntimeError(
+            "TileKernels DSv4 top2 gate is only wired for SGLang's non-fused "
+            "shared-expert FP4 path. The TileKernels fused-shared convention is "
+            "not equivalent to SGLang's fused-shared top-k contract."
+        )
+    if router_logits.shape[1] != 256 or num_topk != 6:
+        raise RuntimeError(
+            "TileKernels DSv4 top2 gate is restricted to DSv4 shape "
+            f"(num_experts=256, topk=6), got {router_logits.shape[1]=}, {num_topk=}."
+        )
+    if correction_bias is None:
+        raise RuntimeError("TileKernels DSv4 top2 gate requires correction_bias")
+    if num_topk_groups is None or num_groups is None:
+        raise RuntimeError("TileKernels DSv4 top2 gate requires grouped metadata")
+    if num_topk_groups != 8 or num_groups != 8:
+        raise RuntimeError(
+            "TileKernels DSv4 top2 gate is restricted to DSv4 groups "
+            f"(num_groups=8, topk_group=8), got {num_groups=}, {num_topk_groups=}."
+        )
+    if scoring_func != "sqrtsoftplus":
+        raise RuntimeError(
+            f"TileKernels DSv4 top2 gate only supports sqrtsoftplus, got {scoring_func}"
+        )
+    if router_logits.dtype != torch.float32:
+        router_logits = router_logits.float()
+    if not router_logits.is_contiguous():
+        router_logits = router_logits.contiguous()
+
+    bias = correction_bias
+    if bias.dtype != torch.float32:
+        bias = bias.float()
+    if not bias.is_contiguous():
+        bias = bias.contiguous()
+
+    try:
+        from tile_kernels.moe import top2_sum_gate as tilekernel_top2_sum_gate
+    except ImportError as exc:
+        raise RuntimeError(
+            "SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE=1 requires tile_kernels "
+            "and tilelang to be importable in the SGLang runtime."
+        ) from exc
+
+    scale = 1.0 if routed_scaling_factor is None else float(routed_scaling_factor)
+    topk_ids, topk_weights = tilekernel_top2_sum_gate(
+        router_logits,
+        bias,
+        num_topk,
+        num_topk_groups,
+        num_groups,
+        num_fused_shared_experts > 0,
+        num_fused_shared_experts,
+        scale,
+        get_moe_expert_parallel_rank(),
+        get_moe_expert_parallel_world_size(),
+        get_moe_tensor_parallel_rank(),
+        get_moe_tensor_parallel_world_size(),
+        scoring_func,
+    )
+
+    if not apply_routed_scaling_factor_on_output and scale != 0.0:
+        topk_weights = topk_weights / scale
+
+    return topk_weights.to(torch.float32), topk_ids.to(torch.int32)
 
 
 # Register fake implementations for torch.compile support
