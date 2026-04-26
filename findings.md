@@ -82,3 +82,33 @@ Conclusion: the current evidence says the TileKernels router path can run with t
 - HashTopK layers are not changed; the hook only applies to non-hash DSv4 routing layers.
 - The live smoke used `SGLANG_APPLY_CONFIG_BACKUP=small` and four layers to keep the test bounded.
 - Long-input `4096+2` requests hang before scheduler admission for both baseline and TileKernels in the current TP=1 four-layer setup.
+
+## Fused-Shared Tail-Kernel Shape
+
+The DSv4 fused-shared router problem shape is:
+
+- `router_logits.shape == (N, 256)`
+- `correction_bias.shape == (256,)`
+- routed expert top-k: `6`
+- fused shared expert count: `1`
+- total output top-k: `7`
+- groups: `num_groups == 8`, `num_topk_groups == 8`
+- scoring: `sqrtsoftplus`
+- shared expert logical id: `256`
+
+SGLang's current fused-shared contract appends shared experts in the final top-k columns, not mixed into the routed top-k ranking. The routed expert ids occupy columns `0..5`; the shared expert occupies column `6`. Before final normalization, the shared weight is the routed selected-weight sum divided by `routed_scaling_factor`. Because fused-shared normalization divides all outputs by the routed selected-weight sum, the final shared column is `1 / routed_scaling_factor` when `apply_routed_scaling_factor_on_output=False`.
+
+The new opt-in experiment is:
+
+```bash
+export SGLANG_OPT_USE_TILEKERNEL_DSV4_FUSED_SHARED_TOP2_GATE=1
+```
+
+Implementation:
+
+- Uses TileKernels only for the routed-only `top2_sum_gate` computation with routed `topk=6`.
+- Appends the shared expert tail column in SGLang's wrapper so the output matches SGLang's fused-shared contract exactly.
+- Keeps the path restricted to one fused shared expert and DSv4 routed `topk=6`.
+- Applies logical-to-physical expert mapping only to routed columns. The appended shared column remains the shared expert id, which avoids indexing a routed-only EPLB dispatch table with id `256`.
+
+This is a contract-validation step, not a full production routing replacement. The live DSv4 2604B FP4 path observed so far uses `num_fused_shared_experts=0`, so this branch is validated as a CUDA unit/integration path rather than a full `/generate` path.

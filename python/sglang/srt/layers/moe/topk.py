@@ -1022,7 +1022,25 @@ def select_experts(
     elif custom_routing_function is None:
         assert not apply_routed_scaling_factor_on_output, "Not implemented"
         if scoring_func == "sqrtsoftplus":
-            if envs.SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE.get():
+            if envs.SGLANG_OPT_USE_TILEKERNEL_DSV4_FUSED_SHARED_TOP2_GATE.get():
+                topk_weights, topk_ids = tilekernel_dsv4_fused_shared_top2_sum_gate(
+                    router_logits=router_logits,
+                    correction_bias=correction_bias,
+                    num_topk=top_k,
+                    num_topk_groups=topk_group,
+                    num_groups=num_expert_group,
+                    num_fused_shared_experts=num_fused_shared_experts,
+                    routed_scaling_factor=routed_scaling_factor,
+                    scoring_func=scoring_func,
+                    apply_routed_scaling_factor_on_output=apply_routed_scaling_factor_on_output,
+                )
+                topk_ids = _map_tilekernel_dsv4_fused_shared_topk_ids(
+                    topk_ids=topk_ids,
+                    expert_location_dispatch_info=expert_location_dispatch_info,
+                    num_fused_shared_experts=num_fused_shared_experts,
+                )
+                _mask_topk_ids_padded_region(topk_ids, num_token_non_padded)
+            elif envs.SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE.get():
                 topk_weights, topk_ids = tilekernel_dsv4_top2_sum_gate(
                     router_logits=router_logits,
                     correction_bias=correction_bias,
@@ -1200,6 +1218,79 @@ def tilekernel_dsv4_top2_sum_gate(
     if not apply_routed_scaling_factor_on_output and scale != 0.0:
         topk_weights = topk_weights / scale
 
+    return topk_weights.to(torch.float32), topk_ids.to(torch.int32)
+
+
+def _map_tilekernel_dsv4_fused_shared_topk_ids(
+    *,
+    topk_ids: torch.Tensor,
+    expert_location_dispatch_info: Optional[ExpertLocationDispatchInfo],
+    num_fused_shared_experts: int,
+) -> torch.Tensor:
+    if expert_location_dispatch_info is None:
+        return topk_ids
+
+    routed_topk_ids = topk_ids[:, :-num_fused_shared_experts]
+    shared_topk_ids = topk_ids[:, -num_fused_shared_experts:]
+    routed_topk_ids = topk_ids_logical_to_physical(
+        routed_topk_ids, expert_location_dispatch_info
+    )
+    return torch.cat([routed_topk_ids, shared_topk_ids], dim=-1)
+
+
+def tilekernel_dsv4_fused_shared_top2_sum_gate(
+    *,
+    router_logits: torch.Tensor,
+    correction_bias: Optional[torch.Tensor],
+    num_topk: int,
+    num_topk_groups: Optional[int],
+    num_groups: Optional[int],
+    num_fused_shared_experts: int,
+    routed_scaling_factor: Optional[float],
+    scoring_func: str,
+    apply_routed_scaling_factor_on_output: bool,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Opt-in DSv4 fused-shared router tail-kernel experiment.
+
+    This keeps SGLang's fused-shared contract: routed experts occupy the first
+    columns and the shared expert is appended as the final top-k column.
+    """
+
+    if num_fused_shared_experts != 1:
+        raise RuntimeError(
+            "TileKernels DSv4 fused-shared gate requires exactly one fused "
+            f"shared expert, got {num_fused_shared_experts=}."
+        )
+    routed_topk = num_topk - num_fused_shared_experts
+    if routed_topk != 6:
+        raise RuntimeError(
+            "TileKernels DSv4 fused-shared gate is restricted to DSv4 routed "
+            f"topk=6, got {num_topk=} and {num_fused_shared_experts=}."
+        )
+
+    topk_weights, topk_ids = tilekernel_dsv4_top2_sum_gate(
+        router_logits=router_logits,
+        correction_bias=correction_bias,
+        num_topk=routed_topk,
+        num_topk_groups=num_topk_groups,
+        num_groups=num_groups,
+        num_fused_shared_experts=0,
+        routed_scaling_factor=routed_scaling_factor,
+        scoring_func=scoring_func,
+        apply_routed_scaling_factor_on_output=apply_routed_scaling_factor_on_output,
+    )
+
+    scale = 1.0 if routed_scaling_factor is None else float(routed_scaling_factor)
+    num_tokens, num_experts = router_logits.shape
+    shared_ids = torch.full(
+        (num_tokens, num_fused_shared_experts),
+        num_experts,
+        dtype=topk_ids.dtype,
+        device=topk_ids.device,
+    )
+    shared_weights = topk_weights.sum(dim=-1, keepdim=True) / scale
+    topk_ids = torch.cat([topk_ids, shared_ids], dim=-1)
+    topk_weights = torch.cat([topk_weights, shared_weights], dim=-1)
     return topk_weights.to(torch.float32), topk_ids.to(torch.int32)
 
 

@@ -7,3 +7,4 @@
 5. Archive evidence and record risks | Done
 6. Resolve TileLang dependency compatibility | Done
 7. Run baseline vs TileKernels A/B evidence | Done
+8. Validate fused-shared tail-kernel contract shape | Done

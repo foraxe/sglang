@@ -216,3 +216,58 @@ Artifact:
 - SHA256: `1e0ba2394c5a0139c35664520041ffde4fa30b3c654ad84f423663d2647f2cc3`
 
 Cleanup after A/B returned all four GPUs to 0 MiB.
+
+### Fused-Shared Tail-Kernel Contract Test
+
+Added an opt-in fused-shared tail wrapper for the DSv4 router shape:
+
+```text
+router logits: (N, 256)
+routed topk: 6
+fused shared experts: 1
+total output topk: 7
+groups/topk_groups: 8/8
+scoring: sqrtsoftplus
+```
+
+Files changed:
+
+- `python/sglang/srt/environ.py`
+- `python/sglang/srt/layers/moe/topk.py`
+- `test/srt/test_dsv4_tilekernel_top2_gate.py`
+
+New env flag:
+
+```bash
+SGLANG_OPT_USE_TILEKERNEL_DSV4_FUSED_SHARED_TOP2_GATE=1
+```
+
+Local checks:
+
+```bash
+python3 -m py_compile \
+  python/sglang/srt/environ.py \
+  python/sglang/srt/layers/moe/topk.py \
+  test/srt/test_dsv4_tilekernel_top2_gate.py
+
+git diff --check
+```
+
+Result: passed.
+
+GB200 CUDA unit test:
+
+```bash
+cd /workspace/sglang
+PYTHONPATH=/workspace/sglang/python:/workspace/TileKernels \
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+pytest -q test/srt/test_dsv4_tilekernel_top2_gate.py
+```
+
+Result:
+
+```text
+11 passed, 3 warnings in 14.40s
+```
+
+Subagent `019dca54-b6af-7bb1-85d3-2f3ab25fdff3` reviewed the fused-shared contract and agreed that scale/id/order semantics match the target DSv4 shape. It flagged a real EPLB edge: a routed-only logical-to-physical dispatch table may not contain the appended shared id `256`. The patch now maps only routed columns and leaves the appended shared id unchanged; the CUDA test includes a regression for that case.
