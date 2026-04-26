@@ -1,6 +1,7 @@
 import torch
 
 import sglang.srt.layers.attention.deepseek_v4_backend_radix as dsv4_radix
+import sglang.srt.layers.deep_gemm_wrapper.paged_mqa_logits as paged_mqa
 from sglang.srt.model_executor.forward_batch_info import ForwardMode
 
 
@@ -83,3 +84,85 @@ def test_dsv4_flashmla_chunking_is_prefill_only(monkeypatch):
     )
 
     assert calls == [10]
+
+
+def test_dsv4_paged_mqa_metadata_and_logits_chunking(monkeypatch):
+    monkeypatch.setenv("SGLANG_DSV4_PREFILL_METADATA_CHUNK_SIZE", "4")
+    metadata_calls = []
+    logits_calls = []
+
+    class FakeDeepGemm:
+        @staticmethod
+        def get_paged_mqa_logits_metadata(context_lens, block_kv, num_sms):
+            metadata_calls.append((context_lens.clone(), block_kv, num_sms))
+            return {"rows": context_lens.shape[0]}
+
+        @staticmethod
+        def fp8_paged_mqa_logits(
+            q,
+            kv_cache,
+            weights,
+            context_lens,
+            block_table,
+            schedule_meta,
+            max_context_len,
+            clean_logits,
+        ):
+            logits_calls.append(
+                {
+                    "q": q.clone(),
+                    "weights": weights.clone(),
+                    "context_lens": context_lens.clone(),
+                    "block_table": block_table.clone(),
+                    "schedule_meta": schedule_meta,
+                    "max_context_len": max_context_len,
+                    "clean_logits": clean_logits,
+                }
+            )
+            return q[:, 0, 0, :1].to(torch.float32)
+
+    monkeypatch.setattr(paged_mqa, "deep_gemm", FakeDeepGemm)
+
+    context_lens = torch.arange(10, dtype=torch.int32)
+    schedule_meta = paged_mqa.get_paged_mqa_logits_metadata_chunked(
+        context_lens=context_lens,
+        block_kv=64,
+        num_sms=132,
+    )
+
+    assert [call[0].flatten().tolist() for call in metadata_calls] == [
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+        [8, 9],
+    ]
+    assert [chunk.schedule_meta["rows"] for chunk in schedule_meta.chunks] == [4, 4, 2]
+
+    q = torch.arange(10 * 1 * 1 * 2, dtype=torch.float32).view(10, 1, 1, 2)
+    kv_cache = torch.zeros(3, 64, 1, 132)
+    weights = torch.arange(10, dtype=torch.float32).view(10, 1)
+    block_table = torch.arange(10 * 3, dtype=torch.int32).view(10, 3)
+
+    logits = paged_mqa.fp8_paged_mqa_logits_chunked(
+        q=q,
+        kv_cache=kv_cache,
+        weights=weights,
+        context_lens=context_lens,
+        block_table=block_table,
+        schedule_meta=schedule_meta,
+        max_context_len=192,
+        clean_logits=False,
+    )
+
+    assert logits.shape == (10, 1)
+    assert torch.equal(logits.flatten(), q[:, 0, 0, 0])
+    assert [call["q"].shape[0] for call in logits_calls] == [4, 4, 2]
+    assert [call["weights"].flatten().tolist() for call in logits_calls] == [
+        [0.0, 1.0, 2.0, 3.0],
+        [4.0, 5.0, 6.0, 7.0],
+        [8.0, 9.0],
+    ]
+    assert [call["block_table"][:, 0].tolist() for call in logits_calls] == [
+        [0, 3, 6, 9],
+        [12, 15, 18, 21],
+        [24, 27],
+    ]
