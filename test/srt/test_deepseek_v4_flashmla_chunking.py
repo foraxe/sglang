@@ -35,7 +35,7 @@ def test_dsv4_flashmla_prefill_chunking_slices_row_tensors(monkeypatch):
         "q": torch.arange(10, dtype=torch.float32).view(10, 1, 1, 1),
         "k_cache": torch.zeros(3, 128, 1, 1),
         "indices": torch.arange(10 * 64, dtype=torch.int32).view(10, 1, 64),
-        "topk_length": torch.arange(10, dtype=torch.int32),
+        "topk_length": torch.tensor([1, 2, 3, 4, 1, 2, 3, 4, 1, 2], dtype=torch.int32),
         "extra_indices_in_kvcache": None,
         "extra_topk_length": None,
     }
@@ -123,7 +123,7 @@ def test_dsv4_paged_mqa_metadata_and_logits_chunking(monkeypatch):
 
     monkeypatch.setattr(paged_mqa, "deep_gemm", FakeDeepGemm)
 
-    context_lens = torch.arange(10, dtype=torch.int32)
+    context_lens = torch.tensor([1, 2, 3, 4, 1, 2, 3, 4, 1, 2], dtype=torch.int32)
     schedule_meta = paged_mqa.get_paged_mqa_logits_metadata_chunked(
         context_lens=context_lens,
         block_kv=64,
@@ -131,9 +131,9 @@ def test_dsv4_paged_mqa_metadata_and_logits_chunking(monkeypatch):
     )
 
     assert [call[0].flatten().tolist() for call in metadata_calls] == [
-        [0, 1, 2, 3],
-        [4, 5, 6, 7],
-        [8, 9],
+        [1, 2, 3, 4],
+        [1, 2, 3, 4],
+        [1, 2],
     ]
     assert [chunk.schedule_meta["rows"] for chunk in schedule_meta.chunks] == [4, 4, 2]
 
