@@ -42,19 +42,43 @@ The SGLang image `lmsysorg/sglang:deepseek-v4-grace-blackwell` contains a TileLa
 TypeError: gemm() got an unexpected keyword argument 'wg_wait'
 ```
 
-The live smoke therefore disables SGLang's TileLang MHC pre/post kernels:
+The first live smoke therefore disabled SGLang's TileLang MHC pre/post kernels:
 
 ```bash
 export SGLANG_OPT_USE_TILELANG_MHC_PRE=0
 export SGLANG_OPT_USE_TILELANG_MHC_POST=0
 ```
 
-This means the router experiment is validated as functional, but dependency compatibility remains unresolved for production-style integration.
+The follow-up fix is SGLang-side: inspect `T.gemm` at import time and pass `wg_wait=0` only when the installed TileLang accepts it. With that guard, `tilelang==0.1.9`, TileKernels router, and SGLang MHC pre/post can run together in the four-layer DSv4 smoke.
+
+Rejected alternative: making current TileKernels source compatible with `tilelang==0.1.8`. That version still exposes `T.gemm(..., wg_wait=...)`, but the current TileKernels `top2_sum_gate` source relies on newer TileLang `T.shfl_sync(value, lane)` behavior and correctness broke after a local compatibility attempt. The local TileKernels branch was reverted to its known-good state.
+
+## A/B Result
+
+A bounded A/B run used:
+
+- TP=1
+- four DSv4 layers
+- `tilelang==0.1.9`
+- MHC pre/post enabled
+- baseline SGLang top-k vs `SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE=1`
+
+Warm 4-token request:
+
+- baseline: HTTP 200, `warm_elapsed_s=132.33`
+- TileKernels: HTTP 200, `warm_elapsed_s=138.33`
+
+Long `4096+2` request:
+
+- baseline: manually terminated after staying connected but not reaching scheduler admission / model forward
+- TileKernels: same behavior
+
+Conclusion: the current evidence says the TileKernels router path can run with the MHC compatibility guard, but it does not yet show a performance win. The long-input stall is shared by both variants in this bounded setup, so it is not caused by the TileKernels router hook.
 
 ## Remaining Risks
 
-- Not PR-ready as a production feature because TileKernels is not a normal SGLang dependency in this image.
+- Not PR-ready as a production feature because TileKernels is not a normal SGLang dependency in this image and no speedup has been proven.
 - Full model TP=4 and throughput benchmarks are not validated for this branch.
 - HashTopK layers are not changed; the hook only applies to non-hash DSv4 routing layers.
 - The live smoke used `SGLANG_APPLY_CONFIG_BACKUP=small` and four layers to keep the test bounded.
-
+- Long-input `4096+2` requests hang before scheduler admission for both baseline and TileKernels in the current TP=1 four-layer setup.

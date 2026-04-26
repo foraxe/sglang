@@ -118,3 +118,101 @@ Artifacts:
 
 After the smoke, `dsv4-sglang-tilekernel-smoke` and `dsv4-sglang-tilekernel-test` were removed. GPU memory returned to 0 MiB on all four GB200 GPUs.
 
+### TileLang Dependency Follow-Up
+
+A compatibility matrix in the same DSv4 image found:
+
+```text
+native tilelang: 0.1.7.post3
+tilelang 0.1.8: TileKernels imports, T.gemm has wg_wait, but TileKernels top2_sum_gate fails against current source
+tilelang 0.1.9: TileKernels top2_sum_gate passes, but T.gemm no longer has wg_wait
+```
+
+A local TileKernels compatibility patch for 0.1.8 was rejected because it compiled but returned wrong expert IDs. The TileKernels branch was restored to its known-good state.
+
+SGLang was patched instead in `python/sglang/srt/layers/mhc.py`:
+
+- inspect `T.gemm` once at import
+- call `T.gemm(..., wg_wait=0, ...)` when supported
+- omit `wg_wait` when running against TileLang 0.1.9
+
+Local checks:
+
+```bash
+python3 -m py_compile \
+  python/sglang/srt/layers/mhc.py \
+  python/sglang/srt/layers/moe/topk.py \
+  test/srt/test_dsv4_tilekernel_top2_gate.py
+
+git diff --check
+```
+
+Result: passed.
+
+GB200 unit test with `tilelang==0.1.9`:
+
+```text
+5 passed, 3 warnings in 14.39s
+```
+
+MHC-enabled live smoke with `tilelang==0.1.9`, TileKernels router enabled, and no `SGLANG_OPT_USE_TILELANG_MHC_PRE/POST=0` workaround:
+
+```text
+HTTP 200
+elapsed=132.33
+prompt_tokens=4
+completion_tokens=1
+output_ids=[113899]
+```
+
+Artifact:
+
+- `/Users/nyx/projects/0explore/dsv4/artifacts/dsv4_tilekernel_router_mhc_smoke/dsv4_tilekernel_router_mhc_smoke.tgz`
+- SHA256: `e213ffe908530350e2427a19a6fd5203f9755570d50463195c0d3000986ae4e3`
+
+### A/B Evidence
+
+Clean A/B used port `31000` to avoid stale server collisions.
+
+Common launch:
+
+```bash
+export SGLANG_APPLY_CONFIG_BACKUP=small
+export SGLANG_JIT_DEEPGEMM_PRECOMPILE=0
+python3 -m sglang.launch_server \
+  --model-path /data/models/DeepSeek-V4-Flash \
+  --tp 1 \
+  --port 31000 \
+  --moe-runner-backend flashinfer_mxfp4 \
+  --disable-cuda-graph \
+  --skip-server-warmup \
+  --disable-flashinfer-autotune \
+  --max-total-tokens 8192 \
+  --max-running-requests 1 \
+  --context-length 8192 \
+  --json-model-override-args '{"num_hidden_layers": 4}'
+```
+
+TileKernels variant added:
+
+```bash
+export SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE=1
+```
+
+Results:
+
+```text
+baseline warm 4+1: HTTP 200, warm_elapsed_s=132.33
+tilekernel warm 4+1: HTTP 200, warm_elapsed_s=138.33
+baseline 4096+2: manually terminated, long_rc=143, no response file
+tilekernel 4096+2: manually terminated, long_rc=143, no response file
+```
+
+The long requests stayed connected to the server but did not produce a scheduler prefill log or GPU work before manual termination. That shared behavior means the long-input stall is not introduced by the TileKernels router hook.
+
+Artifact:
+
+- `/Users/nyx/projects/0explore/dsv4/artifacts/dsv4_tilekernel_router_ab_clean/dsv4_tilekernel_router_ab_clean.tgz`
+- SHA256: `1e0ba2394c5a0139c35664520041ffde4fa30b3c654ad84f423663d2647f2cc3`
+
+Cleanup after A/B returned all four GPUs to 0 MiB.

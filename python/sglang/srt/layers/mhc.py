@@ -1,4 +1,5 @@
 import functools
+import inspect
 import math
 from typing import Tuple
 
@@ -11,6 +12,7 @@ from sglang.srt.layers.attention.nsa.utils import is_nsa_prefill_cp_round_robin_
 from sglang.srt.layers.utils.common import strict_contiguous
 
 tilelang.set_log_level("WARNING")
+GEMM_ACCEPTS_WG_WAIT = "wg_wait" in inspect.signature(T.gemm).parameters
 
 pass_configs = {
     tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
@@ -291,15 +293,25 @@ def mhc_pre_gemm_sqrsum_tilelang(
                 for i, j in T.Parallel(token_block, 4):
                     sqrsum_part[i, j] += x_frag[i, jj * 4 + j] * x_frag[i, jj * 4 + j]
 
-            T.gemm(
-                x_frag,
-                fn_smem,
-                out_frag,
-                transpose_A=False,
-                transpose_B=True,
-                wg_wait=0,
-                clear_accum=False,
-            )
+            if GEMM_ACCEPTS_WG_WAIT:
+                T.gemm(
+                    x_frag,
+                    fn_smem,
+                    out_frag,
+                    transpose_A=False,
+                    transpose_B=True,
+                    wg_wait=0,
+                    clear_accum=False,
+                )
+            else:
+                T.gemm(
+                    x_frag,
+                    fn_smem,
+                    out_frag,
+                    transpose_A=False,
+                    transpose_B=True,
+                    clear_accum=False,
+                )
         sqrsum_l = T.alloc_fragment(token_block, T.float32)
         T.reduce_sum(sqrsum_part, sqrsum_l)
         for i in T.Parallel(token_block):
@@ -372,15 +384,25 @@ def mhc_pre_gemm_sqrsum_splitk_kernel(
                         v = x_f[i, jj * 4 + j]
                         sq_part4[i, j] += v * v
 
-                T.gemm(
-                    x_f,
-                    fn_smem,
-                    out_frag,
-                    transpose_A=False,
-                    transpose_B=True,
-                    wg_wait=0,
-                    clear_accum=False,
-                )
+                if GEMM_ACCEPTS_WG_WAIT:
+                    T.gemm(
+                        x_f,
+                        fn_smem,
+                        out_frag,
+                        transpose_A=False,
+                        transpose_B=True,
+                        wg_wait=0,
+                        clear_accum=False,
+                    )
+                else:
+                    T.gemm(
+                        x_f,
+                        fn_smem,
+                        out_frag,
+                        transpose_A=False,
+                        transpose_B=True,
+                        clear_accum=False,
+                    )
 
             sq_l = T.alloc_fragment((token_block,), T.float32)
             T.reduce_sum(sq_part4, sq_l)

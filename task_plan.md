@@ -5,4 +5,5 @@
 3. Validate TileKernels helper and select_experts integration unit | Done
 4. Smoke DSv4 four-layer server on GB200 | Done
 5. Archive evidence and record risks | Done
-
+6. Resolve TileLang dependency compatibility | Done
+7. Run baseline vs TileKernels A/B evidence | Done
