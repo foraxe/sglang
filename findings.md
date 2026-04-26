@@ -112,3 +112,67 @@ Implementation:
 - Applies logical-to-physical expert mapping only to routed columns. The appended shared column remains the shared expert id, which avoids indexing a routed-only EPLB dispatch table with id `256`.
 
 This is a contract-validation step, not a full production routing replacement. The live DSv4 2604B FP4 path observed so far uses `num_fused_shared_experts=0`, so this branch is validated as a CUDA unit/integration path rather than a full `/generate` path.
+
+## Live Fused-Shared Availability
+
+The current DSv4 GB200 launch uses the 2604B FP4 model path and `--moe-runner-backend flashinfer_mxfp4`. In this mode, the fused-shared TileKernels tail path is not expected to be reachable:
+
+- `DeepseekV4ForCausalLM.determine_num_fused_shared_experts()` initializes `self.num_fused_shared_experts = 0`.
+- It disables shared expert fusion when `SGLANG_DSV4_2604_SUBMODE == "2604B"` because the checkpoint requires different clamping for shared and routed experts.
+- It also disables fusion for 2604 FP4 routed experts because routed experts are FP4 while shared experts remain FP8.
+- Server-argument handling disables shared-expert fusion for FlashInfer TRTLLM-style MoE paths; the FP4 GB200 launch is in the same family of backend constraints.
+
+Conclusion: for the current `/data/models/DeepSeek-V4-Flash` GB200 FP4 run, the live opt-in path to test is still:
+
+```bash
+export SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE=1
+```
+
+The fused-shared tail-kernel branch is useful as a future contract experiment, but it does not justify a runtime PR for the current model unless a launch mode is found where `num_fused_shared_experts=1`.
+
+## TP4 A/B Runner
+
+Added a resumable runner:
+
+```bash
+scripts/run_gb200_tilekernel_tp4_ab.sh
+```
+
+It is designed to:
+
+- sync the focused SGLang files into `/tmp/sglang-dsv4-tilekernel-router` on the GB200 host-debug pod;
+- run baseline TP=4 with `SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE=0`;
+- run TileKernels TP=4 with `SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE=1`;
+- launch with the known Day0-safe containment flag `--max-prefill-tokens 8192`;
+- profile one `4096+2` request for each variant with HTTP `/start_profile` and `/stop_profile`;
+- archive logs, result JSON, trace JSON files, and cleanup evidence into `artifacts/dsv4_tilekernel_router_tp4_ab/`.
+
+Live execution is currently blocked because `$HOME/.kube/gb200_kubeconfig_daily.yaml` has an expired client certificate:
+
+```text
+notAfter=Apr 26 15:24:58 2026 GMT
+kubectl: remote error: tls: expired certificate
+```
+
+No direct SSH fallback to `gpuidi14aaf1029.idi1` resolved from this Mac.
+
+## PR Decision Boundary
+
+Do not frame the TileKernels router branch as production PR-ready yet. The evidence so far is:
+
+- small CUDA unit/integration tests pass;
+- four-layer TP=1 smoke runs;
+- prior small A/B did not show speedup;
+- full TP=4 A/B profile is prepared but blocked on GB200 access.
+
+A credible PR needs full TP=4 evidence showing either router-time improvement or a clear maintainability/compatibility reason. If TP=4 profiling is neutral or slower, keep this as a private experiment and do not spend review bandwidth upstream.
+
+## Separation From FlashMLA Rootfix
+
+TileKernels router work does not fix the DSv4 compressed-attention FlashMLA mixed-prefill issue. The FlashMLA lane remains the scheduler/metadata containment and root-cause lane:
+
+- bad shape: running decode plus multiple new 4096-token prefills;
+- containment: `--max-prefill-tokens 8192` or the scheduler guard from the separate SGLang PR;
+- deeper root cause: FlashMLA metadata/shared-memory behavior for large prefill-shaped `q_rows`.
+
+Keep these separate in docs and PR descriptions.

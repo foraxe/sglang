@@ -271,3 +271,52 @@ Result:
 ```
 
 Subagent `019dca54-b6af-7bb1-85d3-2f3ab25fdff3` reviewed the fused-shared contract and agreed that scale/id/order semantics match the target DSv4 shape. It flagged a real EPLB edge: a routed-only logical-to-physical dispatch table may not contain the appended shared id `256`. The patch now maps only routed columns and leaves the appended shared id unchanged; the CUDA test includes a regression for that case.
+
+### 2026-04-26 TP4 A/B Preparation
+
+Checked whether the new fused-shared tail-kernel path is live for the current GB200 DSv4 FP4 launch.
+
+Result: not live for the current model/backend shape. `DeepseekV4ForCausalLM.determine_num_fused_shared_experts()` disables shared expert fusion for 2604B and 2604 FP4 because shared/routed experts have different constraints. Therefore the current useful live flag remains:
+
+```bash
+SGLANG_OPT_USE_TILEKERNEL_DSV4_TOP2_GATE=1
+```
+
+Added:
+
+```bash
+scripts/run_gb200_tilekernel_tp4_ab.sh
+```
+
+The script prepares the full TP=4 baseline vs TileKernels A/B profile for `4096+2` with `/start_profile` and `/stop_profile`, using `--max-prefill-tokens 8192` to avoid mixing this router experiment with the known FlashMLA mixed-prefill crash.
+
+Local script check:
+
+```bash
+bash -n scripts/run_gb200_tilekernel_tp4_ab.sh
+```
+
+Result: passed.
+
+Live execution blocked:
+
+```text
+kubectl get pod dsv4-gb200-hostdebug -o wide
+Unable to connect to the server: remote error: tls: expired certificate
+
+client cert:
+notAfter=Apr 26 15:24:58 2026 GMT
+```
+
+Direct SSH fallback also failed:
+
+```text
+ssh: Could not resolve hostname gpuidi14aaf1029.idi1
+```
+
+Next live command after kubeconfig refresh:
+
+```bash
+cd /Users/nyx/projects/0explore/dsv4/sglang-dsv4-tilekernel-router
+./scripts/run_gb200_tilekernel_tp4_ab.sh
+```

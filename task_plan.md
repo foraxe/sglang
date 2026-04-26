@@ -8,3 +8,6 @@
 6. Resolve TileLang dependency compatibility | Done
 7. Run baseline vs TileKernels A/B evidence | Done
 8. Validate fused-shared tail-kernel contract shape | Done
+9. Check live fused-shared availability for DSv4 2604B FP4 | Done
+10. Prepare full TP=4 baseline vs TileKernels profile runner | Done
+11. Execute full TP=4 baseline vs TileKernels profile runner | Blocked
