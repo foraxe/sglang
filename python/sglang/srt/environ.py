@@ -504,6 +504,9 @@ class Envs:
     SGLANG_OPT_DG_PAGED_MQA_LOGITS_CHUNK_SIZE = EnvInt(-1)
     SGLANG_DSV4_FIX_ATTN_PADDING = EnvBool(True)  # verified in journal 2026-04-21-017
     SGLANG_DSV4_FIX_TP_ATTN_A2A_SCATTER = EnvBool(True)
+    # Opt-in workaround for FlashMLA metadata kernels whose dynamic shared
+    # memory scales with flattened DSv4 prefill query rows.
+    SGLANG_DSV4_FLASHMLA_PREFILL_CHUNK_SIZE = EnvInt(0)
     SGLANG_DEBUG_SANITY_CHECK_CONFIG = EnvBool(False)
     SGLANG_DEBUG_HACK_CP_ASSERT_PURE_EXTEND = EnvBool(False)
     SGLANG_DEBUG_HACK_CP_CHECK_RANK_CONSISTENCY = EnvBool(False)

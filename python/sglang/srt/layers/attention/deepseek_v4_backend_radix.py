@@ -125,6 +125,52 @@ def _create_dummy_paged_compress_data(compress_ratio: int):
     return None
 
 
+_FLASHMLA_ROW_ARGS = (
+    "q",
+    "indices",
+    "topk_length",
+    "extra_indices_in_kvcache",
+    "extra_topk_length",
+)
+
+
+def _slice_flashmla_rows(input_dict: Dict, start: int, end: int, total_rows: int):
+    chunk = dict(input_dict)
+    for key in _FLASHMLA_ROW_ARGS:
+        value = chunk.get(key)
+        if isinstance(value, torch.Tensor) and value.shape[0] == total_rows:
+            chunk[key] = value[start:end]
+    return chunk
+
+
+def _flash_mla_with_optional_prefill_chunking(
+    input_dict: Dict,
+    backend: str,
+    forward_mode: ForwardMode,
+    runner: Callable = flash_mla_with_kvcache_entrypoint,
+) -> torch.Tensor:
+    q = input_dict["q"]
+    chunk_size = envs.SGLANG_DSV4_FLASHMLA_PREFILL_CHUNK_SIZE.get()
+    if (
+        chunk_size <= 0
+        or not forward_mode.is_extend()
+        or q.shape[0] <= chunk_size
+    ):
+        return runner(**input_dict, backend=backend)[0]
+
+    outputs = []
+    total_rows = q.shape[0]
+    for start in range(0, total_rows, chunk_size):
+        chunk = _slice_flashmla_rows(
+            input_dict=input_dict,
+            start=start,
+            end=min(start + chunk_size, total_rows),
+            total_rows=total_rows,
+        )
+        outputs.append(runner(**chunk, backend=backend)[0])
+    return torch.cat(outputs, dim=0)
+
+
 @dataclass
 class DSV4AttnMetadataRadix:
     page_size: int
@@ -1104,7 +1150,11 @@ class DeepseekV4BackendRadix(AttentionBackend, C4IndexerBackend, CompressorBacke
             )
 
             backend = envs.SGLANG_HACK_FLASHMLA_BACKEND.get()
-            o = flash_mla_with_kvcache_entrypoint(**input_dict, backend=backend)[0]
+            o = _flash_mla_with_optional_prefill_chunking(
+                input_dict=input_dict,
+                backend=backend,
+                forward_mode=forward_batch.forward_mode,
+            )
 
             o = o.squeeze(1)
             return o
