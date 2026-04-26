@@ -330,6 +330,10 @@ class Scheduler(
         # Init model configs
         self.init_model_config()
         self._dsv4_compressed_prefill_guard_warned = False
+        self._is_dsv4_compressed_with_compressed_backend = (
+            is_deepseek_compressed(self.model_config.hf_config)
+            and self.server_args.get_attention_backends() == ("compressed", "compressed")
+        )
 
         # Init metrics stats
         self.init_metrics(tp_rank, pp_rank, dp_rank)
@@ -1955,8 +1959,7 @@ class Scheduler(
         prefill_max_requests = self.server_args.prefill_max_requests
         if (
             running_bs > 0
-            and is_deepseek_compressed(self.model_config.hf_config)
-            and self.server_args.get_attention_backends() == ("compressed", "compressed")
+            and self._is_dsv4_compressed_with_compressed_backend
             and (prefill_max_requests is None or prefill_max_requests > 1)
         ):
             if not self._dsv4_compressed_prefill_guard_warned:
