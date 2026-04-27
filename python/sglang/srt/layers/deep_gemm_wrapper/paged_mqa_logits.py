@@ -28,11 +28,8 @@ def _sequence_chunk_ranges(
     chunk_size: int,
 ) -> List[Tuple[int, int]]:
     lens = seq_lens.detach().flatten().to("cpu")
-    starts = [0]
-    for idx in range(1, batch_size):
-        if int(lens[idx].item()) < int(lens[idx - 1].item()):
-            starts.append(idx)
-    starts.append(batch_size)
+    boundary_indices = torch.nonzero(lens[1:] < lens[:-1], as_tuple=False).flatten()
+    starts = [0, *boundary_indices.add(1).tolist(), batch_size]
 
     ranges: List[Tuple[int, int]] = []
     current_start = starts[0]

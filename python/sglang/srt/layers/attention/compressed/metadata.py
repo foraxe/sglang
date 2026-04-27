@@ -167,11 +167,6 @@ class PagedIndexerMetadata(IndexerMetadata):
                     deep_gemm.get_num_sms(),
                 )
 
-            if not isinstance(self.deep_gemm_metadata, torch.Tensor):
-                pass
-            else:
-                assert isinstance(self.deep_gemm_metadata, torch.Tensor)
-
         from sglang.jit_kernel.deepseek_v4 import plan_topk_v2
 
         if envs.SGLANG_OPT_USE_TOPK_V2.get():
