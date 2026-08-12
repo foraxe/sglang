@@ -283,24 +283,36 @@ class _CoTensorPagePool:
         self._slabs = []
         self._endpoints = []
         for size in slot_sizes:
-            allocation_size = max(page_size, align_up(size, page_size))
-            slab = cotensor.Slab.allocate(allocation_size, device_id, True)
-            self._slabs.append(slab)
-            self._endpoints.append(slab.retain_endpoint())
+            page_count = align_up(size, page_size) // page_size
+            slabs = [
+                cotensor.Slab.allocate(page_size, device_id, True)
+                for _ in range(page_count)
+            ]
+            self._slabs.append(slabs)
+            self._endpoints.append([slab.retain_endpoint() for slab in slabs])
 
     def map(self, slot_index: int, slot, slot_offset: int, size: int, pool_offset: int):
-        return self._endpoints[slot_index].map(
-            slot,
-            slot_offset,
-            pool_offset,
-            size,
-            self._slabs[slot_index].device,
-            cotensor.AccessMode.READ_WRITE,
-        )
+        if size % self.page_size != 0 or pool_offset % self.page_size != 0:
+            raise ValueError("coTensor DWDP page-pool mapping is not page-aligned")
+        first_page = pool_offset // self.page_size
+        mappings = []
+        for index in range(size // self.page_size):
+            endpoint = self._endpoints[slot_index][first_page + index]
+            mapping = endpoint.map(
+                slot,
+                slot_offset + index * self.page_size,
+                0,
+                self.page_size,
+                self._slabs[slot_index][first_page + index].device,
+                cotensor.AccessMode.READ_WRITE,
+            )
+            mappings.append(mapping)
+        return mappings
 
     def release(self) -> None:
-        for endpoint in self._endpoints:
-            endpoint.close()
+        for endpoints in self._endpoints:
+            for endpoint in endpoints:
+                endpoint.close()
         self._endpoints.clear()
         self._slabs.clear()
 
@@ -391,10 +403,10 @@ class CoTensorWeightBuffer:
             self._slots[layer_idx].append(slot)
 
             if layout.pre_size > 0:
-                view = self._page_pool.map(
+                views = self._page_pool.map(
                     buffer_slot, slot, 0, layout.pre_size, pool_offset
                 )
-                self._views[layer_idx].append(view)
+                self._views[layer_idx].extend(views)
                 pool_offset += layout.pre_size
 
             local_view = endpoint.map(
@@ -408,14 +420,14 @@ class CoTensorWeightBuffer:
             self._views[layer_idx].append(local_view)
 
             if layout.post_size > 0:
-                view = self._page_pool.map(
+                views = self._page_pool.map(
                     buffer_slot,
                     slot,
                     layout.pre_size + layout.mnnvl_size,
                     layout.post_size,
                     pool_offset,
                 )
-                self._views[layer_idx].append(view)
+                self._views[layer_idx].extend(views)
                 pool_offset += layout.post_size
 
             full_tensor = tensor_from_pointer(
