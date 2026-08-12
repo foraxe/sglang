@@ -92,6 +92,7 @@ class DwdpManager:
         transport_cls, weight_buffer_cls = get_dwdp_backend(self.vmm_backend)
         transport = None
         weight_buffer = None
+        small_param_restore = []
         try:
             transport = transport_cls.create(
                 layer_weight_specs=layer_weight_specs,
@@ -128,12 +129,15 @@ class DwdpManager:
                         for name in weight_buffer.weight_names(li)
                     }
                 )
-            self._allgather_small_params(moe_layers, group)
+            small_param_restore = self._allgather_small_params(moe_layers, group)
 
             commit = getattr(transport, "commit", None)
             if commit is not None:
                 commit()
+            for _, experts in moe_layers:
+                experts.commit_full_expert_weights()
         except BaseException:
+            self._restore_small_params(small_param_restore)
             if self._weight_manager is not None:
                 self.cleanup(restore_model=True)
             else:
@@ -223,16 +227,17 @@ class DwdpManager:
 
     def _allgather_small_params(
         self, moe_layers: List[Tuple[int, FusedMoE]], group
-    ) -> None:
+    ) -> List[Tuple[FusedMoE, str, torch.Tensor]]:
         local_experts = self.layout.num_experts_per_worker
         num_total = self.layout.num_routed_experts
+        staged = []
 
         for li, experts in moe_layers:
             for pname, data in experts.named_per_expert_tensors(local_experts):
                 shards = [torch.empty_like(data) for _ in range(self.dwdp_size)]
                 dist.all_gather(shards, data, group=group.device_group)
                 full = torch.cat(shards, dim=0)[:num_total].contiguous()
-                experts.replace_expert_tensor(pname, full)
+                staged.append((li, experts, pname, data, full))
 
                 logger.debug(
                     f"Layer {li}: allgathered {pname} "
@@ -240,3 +245,20 @@ class DwdpManager:
                     f"shape={tuple(full.shape)} dtype={full.dtype} "
                     f"size={full.numel() * full.element_size() / 1e6:.1f}MB"
                 )
+
+        restore = []
+        try:
+            for _, experts, pname, original, full in staged:
+                experts.replace_expert_tensor(pname, full)
+                restore.append((experts, pname, original))
+        except BaseException:
+            self._restore_small_params(restore)
+            raise
+        return restore
+
+    @staticmethod
+    def _restore_small_params(
+        restore: List[Tuple[FusedMoE, str, torch.Tensor]],
+    ) -> None:
+        for experts, pname, original in reversed(restore):
+            experts.replace_expert_tensor(pname, original)

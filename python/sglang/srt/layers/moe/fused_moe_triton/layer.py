@@ -524,13 +524,23 @@ class FusedMoE(torch.nn.Module):
         state = self._dwdp_restore_state
         if state is None:
             return
-        for name, original in state["weights"].items():
+        if restore and state["weights"] is None:
+            raise RuntimeError("committed DWDP expert weights cannot be restored")
+        weight_names = (
+            state["weights"].keys()
+            if state["weights"] is not None
+            else state["weight_names"]
+        )
+        for name in weight_names:
+            original = state["weights"][name] if state["weights"] is not None else None
             if restore:
                 self.replace_expert_tensor(name, original)
             else:
+                current = getattr(self, name)
+                current = current.data if isinstance(current, torch.nn.Parameter) else current
                 self.replace_expert_tensor(
                     name,
-                    torch.empty(0, dtype=original.dtype, device=original.device),
+                    torch.empty(0, dtype=current.dtype, device=current.device),
                 )
         if restore:
             for name in (
@@ -545,6 +555,19 @@ class FusedMoE(torch.nn.Module):
                 setattr(self.dispatcher, name, value)
         self._dwdp_bound = False
         self._dwdp_restore_state = None
+
+    def commit_full_expert_weights(self) -> None:
+        """Commit a successful DWDP bind by releasing original weight storage.
+
+        The weight names remain so normal cleanup can still drop every mapped
+        alias before the backing VMM allocation is released.
+        """
+        state = self._dwdp_restore_state
+        if not self._dwdp_bound or state is None:
+            raise RuntimeError("DWDP expert weights are not bound")
+        if state["weights"] is not None:
+            state["weight_names"] = tuple(state["weights"])
+            state["weights"] = None
 
     def named_per_expert_tensors(
         self, num_local_experts: int
