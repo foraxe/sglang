@@ -47,14 +47,6 @@ def _hbm_probe(phase: str, device_id: int, **counts) -> None:
         "process_fd_count": len(os.listdir("/proc/self/fd")),
         **counts,
     }
-    try:
-        import pynvml
-
-        pynvml.nvmlInit()
-        handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
-        payload["nvml_used_bytes"] = pynvml.nvmlDeviceGetMemoryInfo(handle).used
-    except Exception as error:
-        payload["nvml_error"] = repr(error)
     logger.info("DWDP_HBM_PROBE %s", json.dumps(payload, sort_keys=True))
 
 

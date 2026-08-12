@@ -217,7 +217,7 @@
       ]
     }
   },
-  "acceptance_basis": "DP-rank-stratified steady medians; first native cold row retained but excluded",
+  "acceptance_basis": "DP-rank-stratified steady medians over all rows; first native cold row retained and included",
   "strict_hbm_delta_mib": [
     0,
     0
