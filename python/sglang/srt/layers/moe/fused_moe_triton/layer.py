@@ -483,6 +483,7 @@ class FusedMoE(torch.nn.Module):
                 else getattr(self, name)
                 for name in weights
             },
+            "weight_names": tuple(weights),
             "moe_ep_size": self.moe_ep_size,
             "moe_ep_rank": self.moe_ep_rank,
             "_num_local_routed": self._num_local_routed,
@@ -556,18 +557,20 @@ class FusedMoE(torch.nn.Module):
         self._dwdp_bound = False
         self._dwdp_restore_state = None
 
+    def validate_full_expert_weights_commit(self) -> None:
+        """Validate the no-throw commit phase without changing model state."""
+        state = self._dwdp_restore_state
+        if not self._dwdp_bound or state is None or state["weights"] is None:
+            raise RuntimeError("DWDP expert weights are not rollback-capable")
+
     def commit_full_expert_weights(self) -> None:
         """Commit a successful DWDP bind by releasing original weight storage.
 
         The weight names remain so normal cleanup can still drop every mapped
         alias before the backing VMM allocation is released.
         """
-        state = self._dwdp_restore_state
-        if not self._dwdp_bound or state is None:
-            raise RuntimeError("DWDP expert weights are not bound")
-        if state["weights"] is not None:
-            state["weight_names"] = tuple(state["weights"])
-            state["weights"] = None
+        # setup() validates every layer before entering this no-throw phase.
+        self._dwdp_restore_state["weights"] = None
 
     def named_per_expert_tensors(
         self, num_local_experts: int

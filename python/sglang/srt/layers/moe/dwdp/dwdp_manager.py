@@ -131,6 +131,8 @@ class DwdpManager:
                 )
             small_param_restore = self._allgather_small_params(moe_layers, group)
 
+            for _, experts in moe_layers:
+                experts.validate_full_expert_weights_commit()
             commit = getattr(transport, "commit", None)
             if commit is not None:
                 commit()
