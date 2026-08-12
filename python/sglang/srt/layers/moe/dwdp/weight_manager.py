@@ -133,10 +133,14 @@ class DWDPWeightManager:
             self.prefetch_layer(self._moe_layer_indices[1])
 
     def release(self) -> None:
-        if self._weight_buffer is not None:
-            self._weight_buffer.release()
+        try:
+            if self._weight_buffer is not None:
+                self._weight_buffer.release()
+        finally:
             self._weight_buffer = None
-        if self._transport is not None:
-            self._transport.release()
-            self._transport = None
-        self._peer_views.clear()
+            try:
+                if self._transport is not None:
+                    self._transport.release()
+            finally:
+                self._transport = None
+                self._peer_views.clear()

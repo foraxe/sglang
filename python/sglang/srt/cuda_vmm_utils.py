@@ -633,25 +633,59 @@ def exchange_posix_fds(
     received_fds = {}
     errors = []
     ownership_transferred = False
+    stop_receiver = threading.Event()
+    receiver_lock = threading.Lock()
+    active_connections = set()
+    thread = None
 
     def recv_loop():
         try:
             for _ in range(world_size - 1):
+                if stop_receiver.is_set():
+                    break
                 conn, _ = server.accept()
                 with conn:
+                    with receiver_lock:
+                        active_connections.add(conn)
                     conn.settimeout(_FD_SEND_TIMEOUT_S)
-                    while True:
-                        packet = _recv_fd(conn)
-                        if packet is None:
-                            break
-                        src_rank, base_idx, fd = packet
-                        key = (src_rank, base_idx)
-                        if key in received_fds:
-                            os.close(fd)
-                            raise RuntimeError(f"duplicate fd for {key}")
-                        received_fds[key] = fd
+                    try:
+                        while not stop_receiver.is_set():
+                            packet = _recv_fd(conn)
+                            if packet is None:
+                                break
+                            src_rank, base_idx, fd = packet
+                            key = (src_rank, base_idx)
+                            with receiver_lock:
+                                if stop_receiver.is_set():
+                                    os.close(fd)
+                                    break
+                                if key in received_fds:
+                                    os.close(fd)
+                                    raise RuntimeError(f"duplicate fd for {key}")
+                                received_fds[key] = fd
+                    finally:
+                        with receiver_lock:
+                            active_connections.discard(conn)
         except BaseException as e:
-            errors.append(e)
+            if not stop_receiver.is_set():
+                errors.append(e)
+
+    def stop_and_join_receiver():
+        stop_receiver.set()
+        try:
+            server.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        server.close()
+        with receiver_lock:
+            connections = list(active_connections)
+        for conn in connections:
+            try:
+                conn.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+        if thread is not None:
+            thread.join()
 
     try:
         server.bind(sock_path)
@@ -674,6 +708,7 @@ def exchange_posix_fds(
             thread.join(_FD_SEND_TIMEOUT_S)
 
         if thread.is_alive():
+            stop_and_join_receiver()
             raise RuntimeError("timed out waiting for POSIX fd exchange")
         if errors:
             raise RuntimeError("POSIX fd exchange receive failed") from errors[0]
@@ -694,14 +729,16 @@ def exchange_posix_fds(
         ownership_transferred = True
         return received_fds
     finally:
+        stop_and_join_receiver()
         if not ownership_transferred:
-            for fd in received_fds.values():
+            with receiver_lock:
+                abandoned_fds = list(received_fds.values())
+                received_fds.clear()
+            for fd in abandoned_fds:
                 try:
                     os.close(fd)
                 except OSError:
                     pass
-            received_fds.clear()
-        server.close()
         try:
             os.unlink(sock_path)
         except FileNotFoundError:

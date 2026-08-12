@@ -175,10 +175,13 @@ class DwdpManager:
             for _, experts in self._moe_layers:
                 experts.unbind_full_expert_weights(restore=restore_model)
             torch.cuda.synchronize(self.device_id)
-            self._weight_manager.release()
-            self._weight_manager = None
-            self._moe_layers = []
-            self._setup_complete = False
+            manager = self._weight_manager
+            try:
+                manager.release()
+            finally:
+                self._weight_manager = None
+                self._moe_layers = []
+                self._setup_complete = False
 
     @staticmethod
     def _collect_moe_layers(model: nn.Module) -> List[Tuple[int, FusedMoE]]:
