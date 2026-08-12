@@ -15,6 +15,7 @@ import argparse
 import gc
 import json
 import os
+import time
 from types import SimpleNamespace
 
 import torch
@@ -108,6 +109,22 @@ def main() -> None:
         manager.wait_prefetch(layer_idx)
     torch.cuda.synchronize(rank)
 
+    # Measure the unchanged production copy-stream/event protocol after one
+    # warmup. The 200 layer-prefetch operations alternate both buffer slots.
+    repetitions = 100
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    start.record()
+    wall_start = time.perf_counter()
+    for _ in range(repetitions):
+        for layer_idx in range(2):
+            manager.prefetch_layer(layer_idx)
+            manager.wait_prefetch(layer_idx)
+    end.record()
+    end.synchronize()
+    prefetch_gpu_ms = start.elapsed_time(end)
+    prefetch_wall_ms = (time.perf_counter() - wall_start) * 1000
+
     mismatches = 0
     hashes = {}
     for layer_idx in range(2):
@@ -138,6 +155,9 @@ def main() -> None:
         "fd_delta": _fd_count() - fd_before,
         "hbm_delta_bytes": _hbm_used(rank) - hbm_before,
         "granularity": granularity,
+        "prefetch_ops": repetitions * 2,
+        "prefetch_gpu_ms": prefetch_gpu_ms,
+        "prefetch_wall_ms": prefetch_wall_ms,
     }
     print("DWDP_SYNTHETIC_RESULT " + json.dumps(result, sort_keys=True), flush=True)
     if mismatches:
