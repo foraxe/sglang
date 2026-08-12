@@ -14,14 +14,14 @@ from sglang.srt.layers.moe.dwdp.layout import (
     build_layer_weight_specs,
     lookup_owner,
 )
-from sglang.srt.layers.moe.dwdp.transport import DWDPTransport
-from sglang.srt.layers.moe.dwdp.weight_buffer import WeightBuffer
+from sglang.srt.layers.moe.dwdp.backends import get_dwdp_backend
 from sglang.srt.layers.moe.dwdp.weight_manager import DWDPWeightManager
 from sglang.srt.layers.moe.fused_moe_triton.layer import FusedMoE
 from sglang.srt.runtime_context import get_parallel
 
 if TYPE_CHECKING:
     from sglang.srt.server_args import ServerArgs
+    from sglang.srt.layers.moe.dwdp.weight_buffer import WeightBuffer
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ class DwdpManager:
         self.dwdp_size = server_args.dwdp_size
         self.dwdp_rank = get_parallel().tp_rank
         self.device_id = torch.cuda.current_device()
+        self.vmm_backend = server_args.dwdp_vmm_backend
         self.layout: Optional[DwdpExpertLayout] = None
 
         self._weight_manager: Optional[DWDPWeightManager] = None
@@ -85,7 +86,8 @@ class DwdpManager:
         )
 
         group = get_parallel().tp_group
-        transport = DWDPTransport.create(
+        transport_cls, weight_buffer_cls = get_dwdp_backend(self.vmm_backend)
+        transport = transport_cls.create(
             layer_weight_specs=layer_weight_specs,
             local_params=local_params,
             group=group,
@@ -93,7 +95,7 @@ class DwdpManager:
             device_id=self.device_id,
         )
 
-        weight_buffer = WeightBuffer.create(
+        weight_buffer = weight_buffer_cls.create(
             layer_weight_specs=layer_weight_specs,
             handles=transport.handle_set,
             local_start=self.layout.local_expert_start,
@@ -124,7 +126,7 @@ class DwdpManager:
             )
         self._allgather_small_params(moe_layers, group)
 
-        logger.info("DWDP setup complete.")
+        logger.info("DWDP setup complete (vmm_backend=%s).", self.vmm_backend)
 
     def prefetch_first_layers(self) -> None:
         if self._weight_manager is not None:
