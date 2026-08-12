@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: h20-sglang-cotensor-dwdp-0812
+  namespace: yunzhi
+  labels:
+    app: h20-sglang-cotensor-dwdp-0812
+    sigma.ali/app-name: h20-sglang-cotensor-dwdp-0812
+    sigma.ali/deploy-unit: et117
+    sigma.ali/instance-group: h20-sglang-cotensor-dwdp-0812
+    sigma.ali/site: et117
+spec:
+  nodeName: lj-21d317105
+  restartPolicy: Never
+  hostIPC: true
+  hostPID: true
+  hostNetwork: true
+  imagePullSecrets:
+    - name: sigma-regcred
+  tolerations:
+    - key: mandatory.k8s.alipay.com/app-logic-pool
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: dev
+      image: acr-sh-ant-registry-vpc.cn-shanghai.cr.aliyuncs.com/sglang/deepep-base:cabde2cd-20260728100019
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/bash", "-lc", "mkdir -p /home/yunzhi.nyx/h20_team/sglang-cotensor-dwdp && sleep infinity"]
+      workingDir: /home/yunzhi.nyx/h20_team/sglang-cotensor-dwdp
+      env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: all
+      resources:
+        requests: &resources
+          cpu: "32"
+          memory: 256Gi
+          ephemeral-storage: 300Gi
+          nvidia.com/gpu: "8"
+        limits: *resources
+      securityContext:
+        privileged: true
+        capabilities:
+          add: ["SYS_PTRACE"]
+      volumeMounts:
+        - name: home
+          mountPath: /home/yunzhi.nyx
+        - name: data
+          mountPath: /data
+        - name: dshm
+          mountPath: /dev/shm
+  volumes:
+    - name: home
+      hostPath:
+        path: /home/yunzhi.nyx
+        type: DirectoryOrCreate
+    - name: data
+      hostPath:
+        path: /data
+        type: Directory
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 192Gi

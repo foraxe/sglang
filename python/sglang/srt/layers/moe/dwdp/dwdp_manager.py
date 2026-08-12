@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import time
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import torch
@@ -14,14 +17,14 @@ from sglang.srt.layers.moe.dwdp.layout import (
     build_layer_weight_specs,
     lookup_owner,
 )
-from sglang.srt.layers.moe.dwdp.transport import DWDPTransport
-from sglang.srt.layers.moe.dwdp.weight_buffer import WeightBuffer
+from sglang.srt.layers.moe.dwdp.backends import get_dwdp_backend
 from sglang.srt.layers.moe.dwdp.weight_manager import DWDPWeightManager
 from sglang.srt.layers.moe.fused_moe_triton.layer import FusedMoE
 from sglang.srt.runtime_context import get_parallel
 
 if TYPE_CHECKING:
     from sglang.srt.server_args import ServerArgs
+    from sglang.srt.layers.moe.dwdp.weight_buffer import WeightBuffer
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +34,34 @@ _EXPERT_WEIGHT_NAMES = (
 )
 
 
+def _hbm_probe(phase: str, device_id: int, **counts) -> None:
+    if os.environ.get("SGLANG_DWDP_HBM_PROBE") != "1":
+        return
+    payload = {
+        "event": "dwdp_hbm_probe",
+        "phase": phase,
+        "timestamp_ns": time.time_ns(),
+        "device": device_id,
+        "torch_allocated_bytes": torch.cuda.memory_allocated(device_id),
+        "torch_reserved_bytes": torch.cuda.memory_reserved(device_id),
+        "process_fd_count": len(os.listdir("/proc/self/fd")),
+        **counts,
+    }
+    logger.info("DWDP_HBM_PROBE %s", json.dumps(payload, sort_keys=True))
+
+
 class DwdpManager:
     def __init__(self, server_args: ServerArgs):
         self.dwdp_size = server_args.dwdp_size
         self.dwdp_rank = get_parallel().tp_rank
         self.device_id = torch.cuda.current_device()
+        self.vmm_backend = server_args.dwdp_vmm_backend
         self.layout: Optional[DwdpExpertLayout] = None
 
         self._weight_manager: Optional[DWDPWeightManager] = None
         self._moe_layer_indices: List[int] = []
+        self._moe_layers: List[Tuple[int, FusedMoE]] = []
+        self._setup_complete = False
 
     def setup(self, model: nn.Module) -> None:
         if self._weight_manager is not None:
@@ -52,6 +74,7 @@ class DwdpManager:
                 f"{type(model).__name__}"
             )
         self._moe_layer_indices = [li for li, _ in moe_layers]
+        self._moe_layers = moe_layers
 
         expert_counts = {e.num_global_routed_experts for _, e in moe_layers}
         if len(expert_counts) != 1:
@@ -85,46 +108,83 @@ class DwdpManager:
         )
 
         group = get_parallel().tp_group
-        transport = DWDPTransport.create(
-            layer_weight_specs=layer_weight_specs,
-            local_params=local_params,
-            group=group,
-            layout=self.layout,
-            device_id=self.device_id,
-        )
-
-        weight_buffer = WeightBuffer.create(
-            layer_weight_specs=layer_weight_specs,
-            handles=transport.handle_set,
-            local_start=self.layout.local_expert_start,
-            local_end=self.layout.local_expert_end,
-            dwdp_size=self.dwdp_size,
-            device_id=self.device_id,
-        )
-
-        self._fill_edge_bytes(weight_buffer, transport.peer_views)
-
-        self._weight_manager = DWDPWeightManager(
-            weight_buffer=weight_buffer,
-            peer_views=transport.peer_views,
-            peer_ranges=self.layout.peer_ranges,
-            moe_layer_indices=self._moe_layer_indices,
-            weight_names=list(_EXPERT_WEIGHT_NAMES),
-            dwdp_rank=self.dwdp_rank,
-            dwdp_size=self.dwdp_size,
-            transport=transport,
-        )
-
-        for li, experts in moe_layers:
-            experts.bind_full_expert_weights(
-                {
-                    name: weight_buffer.get_full_tensor(li, name)
-                    for name in weight_buffer.weight_names(li)
-                }
+        transport_cls, weight_buffer_cls = get_dwdp_backend(self.vmm_backend)
+        transport = None
+        weight_buffer = None
+        small_param_restore = []
+        try:
+            _hbm_probe("model_loaded_pre_transport", self.device_id)
+            transport = transport_cls.create(
+                layer_weight_specs=layer_weight_specs,
+                local_params=local_params,
+                group=group,
+                layout=self.layout,
+                device_id=self.device_id,
             )
-        self._allgather_small_params(moe_layers, group)
+            transport_counts = getattr(transport, "hbm_probe_counts", {})
+            _hbm_probe("transport_created", self.device_id, **transport_counts)
 
-        logger.info("DWDP setup complete.")
+            weight_buffer = weight_buffer_cls.create(
+                layer_weight_specs=layer_weight_specs,
+                handles=transport.handle_set,
+                local_start=self.layout.local_expert_start,
+                local_end=self.layout.local_expert_end,
+                dwdp_size=self.dwdp_size,
+                device_id=self.device_id,
+            )
+            buffer_counts = getattr(weight_buffer, "hbm_probe_counts", {})
+            _hbm_probe("weight_buffer_created", self.device_id, **buffer_counts)
+            self._fill_edge_bytes(weight_buffer, transport.peer_views)
+
+            self._weight_manager = DWDPWeightManager(
+                weight_buffer=weight_buffer,
+                peer_views=transport.peer_views,
+                peer_ranges=self.layout.peer_ranges,
+                moe_layer_indices=self._moe_layer_indices,
+                weight_names=list(_EXPERT_WEIGHT_NAMES),
+                dwdp_rank=self.dwdp_rank,
+                dwdp_size=self.dwdp_size,
+                transport=transport,
+            )
+            for li, experts in moe_layers:
+                experts.bind_full_expert_weights(
+                    {
+                        name: weight_buffer.get_full_tensor(li, name)
+                        for name in weight_buffer.weight_names(li)
+                    }
+                )
+            small_param_restore = self._allgather_small_params(moe_layers, group)
+
+            for _, experts in moe_layers:
+                experts.validate_full_expert_weights_commit()
+            _hbm_probe("pre_commit", self.device_id)
+            commit = getattr(transport, "commit", None)
+            if commit is not None:
+                commit()
+            for _, experts in moe_layers:
+                experts.commit_full_expert_weights()
+            _hbm_probe("post_commit", self.device_id)
+            if os.environ.get("SGLANG_DWDP_DIAGNOSTIC_EMPTY_CACHE") == "1":
+                torch.cuda.empty_cache()
+                _hbm_probe("post_commit_empty_cache", self.device_id)
+        except BaseException:
+            self._restore_small_params(small_param_restore)
+            if self._weight_manager is not None:
+                self.cleanup(restore_model=True)
+            else:
+                try:
+                    torch.cuda.synchronize(self.device_id)
+                finally:
+                    try:
+                        if weight_buffer is not None:
+                            weight_buffer.release()
+                    finally:
+                        if transport is not None:
+                            transport.release()
+            raise
+
+        self._setup_complete = True
+        logger.info("DWDP setup complete (vmm_backend=%s).", self.vmm_backend)
 
     def prefetch_first_layers(self) -> None:
         if self._weight_manager is not None:
@@ -138,10 +198,16 @@ class DwdpManager:
         if self._weight_manager is not None:
             self._weight_manager.record_compute_and_prefetch_next(layer_idx)
 
-    def cleanup(self) -> None:
+    def cleanup(self, *, restore_model: bool = False) -> None:
         if self._weight_manager is not None:
+            torch.cuda.synchronize(self.device_id)
+            for _, experts in self._moe_layers:
+                experts.unbind_full_expert_weights(restore=restore_model)
+            torch.cuda.synchronize(self.device_id)
             self._weight_manager.release()
             self._weight_manager = None
+            self._moe_layers = []
+            self._setup_complete = False
 
     @staticmethod
     def _collect_moe_layers(model: nn.Module) -> List[Tuple[int, FusedMoE]]:
@@ -192,16 +258,17 @@ class DwdpManager:
 
     def _allgather_small_params(
         self, moe_layers: List[Tuple[int, FusedMoE]], group
-    ) -> None:
+    ) -> List[Tuple[FusedMoE, str, torch.Tensor]]:
         local_experts = self.layout.num_experts_per_worker
         num_total = self.layout.num_routed_experts
+        staged = []
 
         for li, experts in moe_layers:
             for pname, data in experts.named_per_expert_tensors(local_experts):
                 shards = [torch.empty_like(data) for _ in range(self.dwdp_size)]
                 dist.all_gather(shards, data, group=group.device_group)
                 full = torch.cat(shards, dim=0)[:num_total].contiguous()
-                experts.replace_expert_tensor(pname, full)
+                staged.append((li, experts, pname, data, full))
 
                 logger.debug(
                     f"Layer {li}: allgathered {pname} "
@@ -209,3 +276,20 @@ class DwdpManager:
                     f"shape={tuple(full.shape)} dtype={full.dtype} "
                     f"size={full.numel() * full.element_size() / 1e6:.1f}MB"
                 )
+
+        restore = []
+        try:
+            for _, experts, pname, original, full in staged:
+                experts.replace_expert_tensor(pname, full)
+                restore.append((experts, pname, original))
+        except BaseException:
+            self._restore_small_params(restore)
+            raise
+        return restore
+
+    @staticmethod
+    def _restore_small_params(
+        restore: List[Tuple[FusedMoE, str, torch.Tensor]],
+    ) -> None:
+        for experts, pname, original in reversed(restore):
+            experts.replace_expert_tensor(pname, original)

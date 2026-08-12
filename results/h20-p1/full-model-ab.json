@@ -1,0 +1,47 @@
+{
+  "classification": "PASS",
+  "model": "/home/yunzhi.nyx/h20_team/models/gpt-oss-20b",
+  "config": {
+    "gpus": [0, 1],
+    "tp_size": 2,
+    "dwdp_size": 2,
+    "mem_fraction_static": 0.8,
+    "disable_radix_cache": true,
+    "prompt_sha256": "075051f88e0f1d025744c6d26fd20a1207bbd22e3da29b0b8bbd3112aa036faf"
+  },
+  "gates": {
+    "output_equality": {"classification": "PASS"},
+    "streaming_ttft_median_regression_le_3_percent": {
+      "classification": "PASS",
+      "native_ms": 190.949366,
+      "cotensor_ms": 190.187042,
+      "regression_percent": -0.3992
+    },
+    "prefill_proxy_median_regression_le_3_percent": {
+      "classification": "PASS",
+      "native_ms": 235.968355,
+      "cotensor_ms": 236.374572,
+      "regression_percent": 0.1721
+    },
+    "candidate_hbm_le_baseline": {
+      "classification": "PASS",
+      "dp0_native_and_cotensor_mib": [81030, 80636],
+      "dp1_native_and_cotensor_mib": [80588, 81078],
+      "stratified_candidate_minus_baseline_mib": [0, 0],
+      "descriptive_unstratified_candidate_minus_baseline_mib": -24,
+      "abba_blocks": 5,
+      "raw_evidence": "../h20-e2-hbm/hbm-abba/rows.json"
+    }
+  },
+  "raw_evidence": {
+    "native": "ttft-native-raw.json",
+    "cotensor": "ttft-cotensor-raw.json",
+    "postflight": "postflight-ttft.txt"
+  },
+  "prior_directional_decode": {
+    "native_median_tok_s": 19.69,
+    "cotensor_median_tok_s": 20.50,
+    "cotensor_vs_native_percent": 4.1
+  },
+  "notes": "TTFT is measured from client monotonic request start to the first SSE response containing non-empty generated text. Each backend used one warmup and three measured rows. Fixed-seed ABBA x 5 determined the prior +64 MiB HBM observation was request-DP/launch state noise; strict overall E2 passes."
+}

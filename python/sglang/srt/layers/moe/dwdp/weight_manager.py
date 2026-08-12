@@ -133,10 +133,24 @@ class DWDPWeightManager:
             self.prefetch_layer(self._moe_layer_indices[1])
 
     def release(self) -> None:
+        errors = []
         if self._weight_buffer is not None:
-            self._weight_buffer.release()
-            self._weight_buffer = None
+            try:
+                self._weight_buffer.release()
+            except Exception as error:
+                errors.append(error)
+            else:
+                self._weight_buffer = None
         if self._transport is not None:
-            self._transport.release()
-            self._transport = None
-        self._peer_views.clear()
+            try:
+                self._transport.release()
+            except Exception as error:
+                errors.append(error)
+            else:
+                self._transport = None
+        if self._weight_buffer is None and self._transport is None:
+            self._peer_views.clear()
+        if errors:
+            for error in errors[1:]:
+                errors[0].add_note(f"additional DWDP release failure: {error!r}")
+            raise errors[0]

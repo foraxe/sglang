@@ -1078,6 +1078,16 @@ class ServerArgs:
         ),
         NS("parallel"),
     ] = 1
+    dwdp_vmm_backend: A[
+        str,
+        Arg(
+            help="VMM lifecycle backend for DWDP expert weights. 'native' uses "
+            "SGLang's CUDA VMM implementation; 'cotensor' uses the optional "
+            "single-node POSIX-FD coTensor adapter.",
+            choices=["native", "cotensor"],
+        ),
+        NS("parallel"),
+    ] = "native"
     dcp_comm_backend: A[
         str,
         Arg(
@@ -6547,6 +6557,7 @@ class ServerArgs:
 
         logger.info(
             f"DWDP enabled: dwdp_size={self.dwdp_size}, "
+            f"dwdp_vmm_backend={self.dwdp_vmm_backend}, "
             f"auto-forced dp_size={self.dp_size}, moe_ep_size={self.moe_ep_size}, "
             f"moe_dense_tp_size=1, moe_a2a_backend=none, "
             f"dp_attention_local_control_broadcast=True, "
