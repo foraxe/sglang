@@ -41,6 +41,7 @@ class DwdpManager:
 
         self._weight_manager: Optional[DWDPWeightManager] = None
         self._moe_layer_indices: List[int] = []
+        self._moe_layers: List[Tuple[int, FusedMoE]] = []
 
     def setup(self, model: nn.Module) -> None:
         if self._weight_manager is not None:
@@ -53,6 +54,7 @@ class DwdpManager:
                 f"{type(model).__name__}"
             )
         self._moe_layer_indices = [li for li, _ in moe_layers]
+        self._moe_layers = moe_layers
 
         expert_counts = {e.num_global_routed_experts for _, e in moe_layers}
         if len(expert_counts) != 1:
@@ -117,14 +119,22 @@ class DwdpManager:
             transport=transport,
         )
 
-        for li, experts in moe_layers:
-            experts.bind_full_expert_weights(
-                {
-                    name: weight_buffer.get_full_tensor(li, name)
-                    for name in weight_buffer.weight_names(li)
-                }
-            )
-        self._allgather_small_params(moe_layers, group)
+        try:
+            for li, experts in moe_layers:
+                experts.bind_full_expert_weights(
+                    {
+                        name: weight_buffer.get_full_tensor(li, name)
+                        for name in weight_buffer.weight_names(li)
+                    }
+                )
+            self._allgather_small_params(moe_layers, group)
+
+            commit = getattr(transport, "commit", None)
+            if commit is not None:
+                commit()
+        except BaseException:
+            self.cleanup()
+            raise
 
         logger.info("DWDP setup complete (vmm_backend=%s).", self.vmm_backend)
 
@@ -142,8 +152,13 @@ class DwdpManager:
 
     def cleanup(self) -> None:
         if self._weight_manager is not None:
+            torch.cuda.synchronize(self.device_id)
+            for _, experts in self._moe_layers:
+                experts.unbind_full_expert_weights()
+            torch.cuda.synchronize(self.device_id)
             self._weight_manager.release()
             self._weight_manager = None
+            self._moe_layers = []
 
     @staticmethod
     def _collect_moe_layers(model: nn.Module) -> List[Tuple[int, FusedMoE]]:

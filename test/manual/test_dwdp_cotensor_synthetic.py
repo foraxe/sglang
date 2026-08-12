@@ -61,8 +61,9 @@ def main() -> None:
     fd_before = _fd_count()
     hbm_before = _hbm_used(rank)
     granularity = get_device_granularity(rank)
+    # Exercise nonzero edge bytes and composite-VA padding.
     elements_per_expert = (
-        granularity // torch.empty((), dtype=torch.float32).element_size()
+        granularity // torch.empty((), dtype=torch.float32).element_size() + 17
     )
     layout = DwdpExpertLayout(4, world_size, rank)
 
@@ -137,6 +138,7 @@ def main() -> None:
             ]
             mismatches += sum(a != b for a, b in zip(observed, expected))
             hashes[f"{layer_idx}:{name}"] = float(tensor.double().sum().item())
+    del tensor
 
     dist.barrier()
     manager.release()

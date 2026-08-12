@@ -632,6 +632,7 @@ def exchange_posix_fds(
     server.settimeout(_FD_SEND_TIMEOUT_S)
     received_fds = {}
     errors = []
+    ownership_transferred = False
 
     def recv_loop():
         try:
@@ -692,8 +693,16 @@ def exchange_posix_fds(
                 "POSIX fd exchange mismatch: "
                 f"missing={sorted(missing)[:8]}, extra={sorted(extra)[:8]}"
             )
+        ownership_transferred = True
         return received_fds
     finally:
+        if not ownership_transferred:
+            for fd in received_fds.values():
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            received_fds.clear()
         server.close()
         try:
             os.unlink(sock_path)

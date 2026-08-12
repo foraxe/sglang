@@ -102,10 +102,6 @@ def _copy_local_weights_to_endpoints(
         slab.copy_from(param, data_offset)
         endpoint = slab.retain_endpoint()
 
-        # Preserve the native lifecycle: weights move into VMM storage and the
-        # original torch allocation is returned before peer exchange.
-        param.untyped_storage().resize_(0)
-
         key = (layer_idx, name)
         slabs[key] = slab
         endpoints[key] = endpoint
@@ -125,6 +121,8 @@ class CoTensorDWDPTransport:
         self._peer_mappings = []
         self._peer_storage_tensors = []
         self._released = False
+        self._setup_committed = False
+        self._original_params = None
 
     @classmethod
     def create(
@@ -146,9 +144,14 @@ class CoTensorDWDPTransport:
                 device_id,
             )
         )
-        transport._import_peer_views(
-            sorted_keys, layer_weight_specs, group, layout, device_id
-        )
+        transport._original_params = local_params
+        try:
+            transport._import_peer_views(
+                sorted_keys, layer_weight_specs, group, layout, device_id
+            )
+        except BaseException:
+            transport.release()
+            raise
         dist.barrier(group=group.device_group)
         logger.info(
             "coTensor DWDP transport complete: rank=%d/%d, %d local endpoints, "
@@ -159,6 +162,11 @@ class CoTensorDWDPTransport:
             len(transport._peer_views),
         )
         return transport
+
+    def commit(self) -> None:
+        """Commit setup only after SGLang has rebound every model Parameter."""
+        self._original_params = None
+        self._setup_committed = True
 
     def _import_peer_views(
         self,
@@ -249,17 +257,16 @@ class CoTensorDWDPTransport:
     def release(self) -> None:
         if self._released:
             return
-        self._released = True
 
         self._peer_views.clear()
         self._peer_storage_tensors.clear()
         gc.collect()
+        live = [mapping.live_tensors for mapping in self._peer_mappings]
+        if any(live):
+            raise RuntimeError(
+                f"coTensor DWDP peer mappings retain tensor aliases: {live}"
+            )
         for mapping in self._peer_mappings:
-            if mapping.live_tensors != 0:
-                raise RuntimeError(
-                    "coTensor DWDP peer mapping still has live tensor aliases "
-                    f"during teardown: {mapping.live_tensors}"
-                )
             mapping.unbind()
         if self._peer_mappings:
             del mapping
@@ -275,6 +282,8 @@ class CoTensorDWDPTransport:
                 endpoint.close()
             self._handle_set = None
         self._local_slabs.clear()
+        self._original_params = None
+        self._released = True
 
 
 class _CoTensorPagePool:
@@ -342,6 +351,7 @@ class CoTensorWeightBuffer:
         self._remote_slices = {}
         self._slots = {}
         self._views = {}
+        self._view_roots = {}
         self._released = False
 
     @classmethod
@@ -381,8 +391,12 @@ class CoTensorWeightBuffer:
         }
         slot_sizes = compute_slot_sizes(buf._layouts, assignments)
         buf._page_pool = _CoTensorPagePool(slot_sizes, device_id, buf._pool_page_size)
-        for layer_idx in buf._moe_layer_indices:
-            buf._setup_layer(layer_idx)
+        try:
+            for layer_idx in buf._moe_layer_indices:
+                buf._setup_layer(layer_idx)
+        except BaseException:
+            buf.release()
+            raise
         return buf
 
     def _setup_layer(self, layer_idx: int) -> None:
@@ -395,6 +409,7 @@ class CoTensorWeightBuffer:
         self._remote_slices[layer_idx] = {}
         self._slots[layer_idx] = []
         self._views[layer_idx] = []
+        self._view_roots[layer_idx] = []
 
         for name, layout in weight_layouts.items():
             spec = weight_specs[name]
@@ -407,6 +422,9 @@ class CoTensorWeightBuffer:
                     buffer_slot, slot, 0, layout.pre_size, pool_offset
                 )
                 self._views[layer_idx].extend(views)
+                self._view_roots[layer_idx].extend(
+                    view.tensor("uint8", [view.size]) for view in views
+                )
                 pool_offset += layout.pre_size
 
             local_view = endpoint.map(
@@ -418,6 +436,9 @@ class CoTensorWeightBuffer:
                 cotensor.AccessMode.READ_WRITE,
             )
             self._views[layer_idx].append(local_view)
+            self._view_roots[layer_idx].append(
+                local_view.tensor("uint8", [local_view.size])
+            )
 
             if layout.post_size > 0:
                 views = self._page_pool.map(
@@ -428,6 +449,9 @@ class CoTensorWeightBuffer:
                     pool_offset,
                 )
                 self._views[layer_idx].extend(views)
+                self._view_roots[layer_idx].extend(
+                    view.tensor("uint8", [view.size]) for view in views
+                )
                 pool_offset += layout.post_size
 
             full_tensor = tensor_from_pointer(
@@ -487,17 +511,17 @@ class CoTensorWeightBuffer:
     def release(self) -> None:
         if self._released:
             return
-        self._released = True
         self._remote_slices.clear()
         self._tensors.clear()
+        self._view_roots.clear()
         gc.collect()
+        live = [view.live_tensors for views in self._views.values() for view in views]
+        if any(live):
+            raise RuntimeError(
+                f"coTensor DWDP composite mappings retain tensor aliases: {live}"
+            )
         for views in self._views.values():
             for view in views:
-                if view.live_tensors != 0:
-                    raise RuntimeError(
-                        "coTensor DWDP weight mapping still has live tensor aliases "
-                        f"during teardown: {view.live_tensors}"
-                    )
                 view.unbind()
         if self._views:
             del view
@@ -507,3 +531,4 @@ class CoTensorWeightBuffer:
         if self._page_pool is not None:
             self._page_pool.release()
             self._page_pool = None
+        self._released = True

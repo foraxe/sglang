@@ -491,6 +491,18 @@ class FusedMoE(torch.nn.Module):
 
         self._dwdp_bound = True
 
+    def unbind_full_expert_weights(self) -> None:
+        """Drop model aliases before the external DWDP mappings are unmapped."""
+        if not self._dwdp_bound:
+            return
+        for name in ("w13_weight", "w2_weight"):
+            tensor = getattr(self, name, None)
+            if tensor is not None:
+                self.replace_expert_tensor(
+                    name, torch.empty(0, dtype=tensor.dtype, device=tensor.device)
+                )
+        self._dwdp_bound = False
+
     def named_per_expert_tensors(
         self, num_local_experts: int
     ) -> List[Tuple[str, torch.Tensor]]:
