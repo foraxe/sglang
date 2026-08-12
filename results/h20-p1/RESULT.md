@@ -2,17 +2,17 @@
 
 ## Classification
 
-- Adapter/static integration: `PASS` at `508db3af49334b0b34e85f0b31ed160959a962f3`.
+- Adapter/static integration and rollback ownership tests: `PASS` at `ccf5431e0f4d32eb1fc70f5eb400e700b0bd7c66`.
 - Real 2-rank synthetic DWDP lifecycle E1: `PASS` for native and coTensor.
-- Full `gpt-oss-20b` service E1/E2: `BLOCKED`; no TTFT/throughput claim.
+- Full `gpt-oss-20b` service E1/E2: `PASS` for native and coTensor.
 
 ## Environment
 
 - Node `lj-21d317105`, 8 x NVIDIA H20; experiment pins GPUs 0-1.
-- Torch `2.11.0+cu130`; CUDA runtime 13.0.
+- Torch `2.11.0+cu130`; CUDA runtime 13.0; `sglang-kernel 0.4.5+cu130`.
 - SGLang base `93e9db5eb89d51e6818d43062d0296612bf53061`.
 - coTensor P0.4 final reviewed evidence head `86d223d`.
-- Model attempted: `/data/nas/moyun.zty/models/OpenAI/gpt-oss-20b`.
+- Model: node-local verified copy at `/home/yunzhi.nyx/h20_team/models/gpt-oss-20b`.
 
 ## E1 evidence
 
@@ -42,15 +42,26 @@ on setup rollback, covers transport/weight-buffer/edge-fill failures, retains
 component View roots while composite raw-pointer tensors are live, checks zero
 root leases before unmap, and makes partial FD-exchange cleanup single-owner.
 
-## Full-model blocker
+## Full-model E1/E2
 
-The image's `sglang-kernel 0.4.4+cu130` is ABI-compatible with Torch 2.11, but
-the pinned SGLang main requires `0.4.6.post1`. The generic 0.4.6 wheel failed to
-load with an undefined Torch symbol. With the 0.4.4 version check experimentally
-lowered, native DWDP loaded all three model shards, then made no log/GPU/CPU
-progress for more than 10 minutes: workers held about 10,164 MiB each at 0%
-GPU utilization. It was killed per the no-progress gate and GPU memory returned
-to 1 MiB.
+The compatible image and node-local model copy removed the earlier kernel ABI
+and NAS page-fault blockers. Both backends reached HTTP health and served the
+same fixed requests. Raw durable rows are in `full-model-ab.json`.
 
-Therefore model output equality, TTFT, prefill latency, throughput, and service
-shutdown remain `BLOCKED`, not `PASS` or `FAIL` for coTensor.
+- Exact output: `PASS`; prefill and 32-token decode SHA-256 match between
+  native and coTensor.
+- Steady HBM GPU 0/1: native `80,990 / 81,014 MiB`; coTensor
+  `81,008 / 81,078 MiB` (candidate maximum +64 MiB).
+- 3,500-token prefill plus one output token: native `0.240 s`, coTensor
+  `0.657 s`. This is one HTTP E2E sample and is directional, not an acceptance
+  performance claim.
+- Median 32-token request throughput: native `19.69 tok/s`, coTensor
+  `20.50 tok/s` (+4.1% directional).
+- HTTP non-streaming max-new-token=1 latency is a prefill/E2E proxy. A true
+  streaming TTFT was not captured and remains an explicit measurement gap.
+- Shutdown: all eight GPUs returned to `1 MiB`, `0%`; the pod was retained.
+
+Transaction regression tests cover nine injected setup/cleanup failures and
+one late SCM_RIGHTS timeout race. All ten targeted tests pass, including exact
+FD-count restoration, receiver join, model/EP rollback, release ordering, and
+successful retry.
