@@ -149,10 +149,10 @@ class CoTensorDWDPTransport:
             transport._import_peer_views(
                 sorted_keys, layer_weight_specs, group, layout, device_id
             )
+            dist.barrier(group=group.device_group)
         except BaseException:
             transport.release()
             raise
-        dist.barrier(group=group.device_group)
         logger.info(
             "coTensor DWDP transport complete: rank=%d/%d, %d local endpoints, "
             "%d peer views (POSIX fd)",

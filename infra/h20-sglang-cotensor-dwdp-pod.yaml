@@ -23,7 +23,7 @@ spec:
       effect: NoSchedule
   containers:
     - name: dev
-      image: acr-sh-ant-registry-vpc.cn-shanghai.cr.aliyuncs.com/sglang/deepep-base:53e24570-20260716113251
+      image: acr-sh-ant-registry-vpc.cn-shanghai.cr.aliyuncs.com/sglang/deepep-base:cabde2cd-20260728100019
       imagePullPolicy: IfNotPresent
       command: ["/bin/bash", "-lc", "mkdir -p /home/yunzhi.nyx/h20_team/sglang-cotensor-dwdp && sleep infinity"]
       workingDir: /home/yunzhi.nyx/h20_team/sglang-cotensor-dwdp

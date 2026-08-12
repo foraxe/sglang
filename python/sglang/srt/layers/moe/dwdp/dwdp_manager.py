@@ -137,10 +137,15 @@ class DwdpManager:
             if self._weight_manager is not None:
                 self.cleanup(restore_model=True)
             else:
-                if weight_buffer is not None:
-                    weight_buffer.release()
-                if transport is not None:
-                    transport.release()
+                try:
+                    torch.cuda.synchronize(self.device_id)
+                finally:
+                    try:
+                        if weight_buffer is not None:
+                            weight_buffer.release()
+                    finally:
+                        if transport is not None:
+                            transport.release()
             raise
 
         self._setup_complete = True
