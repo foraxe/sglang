@@ -2,7 +2,7 @@
 
 ## Classification
 
-- Adapter/static integration: `PASS` at `c1216ea4f14f1e566a781777f2ac43c121b0749f`.
+- Adapter/static integration: `PASS` at `508db3af49334b0b34e85f0b31ed160959a962f3`.
 - Real 2-rank synthetic DWDP lifecycle E1: `PASS` for native and coTensor.
 - Full `gpt-oss-20b` service E1/E2: `BLOCKED`; no TTFT/throughput claim.
 
@@ -11,7 +11,7 @@
 - Node `lj-21d317105`, 8 x NVIDIA H20; experiment pins GPUs 0-1.
 - Torch `2.11.0+cu130`; CUDA runtime 13.0.
 - SGLang base `93e9db5eb89d51e6818d43062d0296612bf53061`.
-- coTensor P0.4 reviewed API/code `7b4d8b2`; final evidence head `86d223d`.
+- coTensor P0.4 final reviewed evidence head `86d223d`.
 - Model attempted: `/data/nas/moyun.zty/models/OpenAI/gpt-oss-20b`.
 
 ## E1 evidence
@@ -22,14 +22,11 @@ weight names, two alternating slots, peer POSIX-FD exchange, and misaligned
 expert bytes (`granularity / sizeof(float) + 17` elements).
 
 - Native and coTensor: zero mismatches on both ranks.
-- Cross-backend hashes match exactly:
-  - `0:w13_weight = 5243050`
-  - `0:w2_weight = 26215250`
-  - `1:w13_weight = 214965050`
-  - `1:w2_weight = 235937250`
-- 200 prefetch operations after warmup:
-  - native rank 0/1: `7.832 / 7.147 ms` GPU
-  - coTensor rank 0/1: `6.915 / 6.853 ms` GPU
+- Full-byte SHA-256 hashes match exactly across native/coTensor and both ranks;
+  see `native-sha256-508db3a.log` and `cotensor-sha256-508db3a.log`.
+- Final 200-prefetch check after warmup:
+  - native rank 0/1: `7.068 / 7.087 ms` GPU
+  - coTensor rank 0/1: `6.973 / 6.991 ms` GPU
 - Post-process cleanup: all eight GPUs returned to `1 MiB`, `0%` utilization.
 - In-process `fd_delta=24` and HBM deltas include live NCCL/c10d/CUDA contexts;
   they are diagnostic and not classified as a coTensor leak. The post-process
@@ -39,6 +36,11 @@ The initial candidate mapped nonzero physical offsets from one large page-pool
 Slab and failed with `cuMemMap ... CUDA_ERROR_NOT_SUPPORTED (801)`. Native DWDP
 uses one allocation handle per page. The fixed candidate matches that structure
 with one coTensor Endpoint per page and maps every allocation at offset zero.
+
+The lifecycle patch also snapshots/restores model weight and EP/dispatcher state
+on setup rollback, covers transport/weight-buffer/edge-fill failures, retains
+component View roots while composite raw-pointer tensors are live, checks zero
+root leases before unmap, and makes partial FD-exchange cleanup single-owner.
 
 ## Full-model blocker
 
@@ -52,4 +54,3 @@ to 1 MiB.
 
 Therefore model output equality, TTFT, prefill latency, throughput, and service
 shutdown remain `BLOCKED`, not `PASS` or `FAIL` for coTensor.
-

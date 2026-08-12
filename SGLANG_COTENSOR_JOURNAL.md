@@ -50,3 +50,4 @@
 | 2026-08-12 | `93e9db5eb` | macOS static checkout | pin upstream and trace DWDP | `PASS`: exact base and landing commit established |
 | 2026-08-12 | `c1216ea4f` | H20 2-rank synthetic | native then coTensor misaligned lifecycle E1 | `PASS`: hashes equal, zero mismatch, 200 prefetch ops/backend |
 | 2026-08-12 | `c1216ea4f` | H20 gpt-oss-20b native | full service startup | `BLOCKED`: kernel ABI/version conflict, then >10 min post-shard stall |
+| 2026-08-12 | `508db3af4` | H20 2-rank synthetic | full-byte SHA-256 native/cotensor | `PASS`: identical hashes, zero element mismatch, post-exit 1 MiB/GPU |
