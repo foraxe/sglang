@@ -51,3 +51,4 @@
 | 2026-08-12 | `c1216ea4f` | H20 2-rank synthetic | native then coTensor misaligned lifecycle E1 | `PASS`: hashes equal, zero mismatch, 200 prefetch ops/backend |
 | 2026-08-12 | `c1216ea4f` | H20 gpt-oss-20b native | full service startup | `BLOCKED`: kernel ABI/version conflict, then >10 min post-shard stall |
 | 2026-08-12 | `508db3af4` | H20 2-rank synthetic | full-byte SHA-256 native/cotensor | `PASS`: identical hashes, zero element mismatch, post-exit 1 MiB/GPU |
+| 2026-08-12 | `d4164544a` + final lifecycle patch | H20 gpt-oss-20b, 2 ranks, radix cache disabled | native/cotensor true streaming TTFT and prefill, 1 warmup + 3 measured | TTFT `PASS` (-0.399% median), prefill `PASS` (+0.172% median), output `PASS`; strict HBM `FAIL` (+64 MiB), therefore E2 `FAIL` |

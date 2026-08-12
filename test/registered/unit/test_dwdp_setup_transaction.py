@@ -88,6 +88,7 @@ class _Transport:
     instances = []
     fail_create = False
     fail_commit = False
+    fail_release_once = False
 
     def __init__(self):
         self.handle_set = object()
@@ -113,12 +114,15 @@ class _Transport:
     def release(self):
         self.release_count += 1
         _EVENTS.append("transport-release")
+        if self.fail_release_once:
+            self.__class__.fail_release_once = False
+            raise RuntimeError("injected transport release")
 
 
 class _Buffer:
     instances = []
     fail_create = False
-    fail_release = False
+    fail_release_once = False
 
     def __init__(self):
         self.release_count = 0
@@ -140,7 +144,8 @@ class _Buffer:
     def release(self):
         self.release_count += 1
         _EVENTS.append("buffer-release")
-        if self.fail_release:
+        if self.fail_release_once:
+            self.__class__.fail_release_once = False
             raise RuntimeError("injected weight buffer release")
 
 
@@ -151,21 +156,35 @@ class _WeightManager:
     def __init__(self, weight_buffer, transport, peer_views, **kwargs):
         if self.fail_create:
             raise RuntimeError("injected manager creation")
-        self.weight_buffer = weight_buffer
-        self.transport = transport
+        self._weight_buffer = weight_buffer
+        self._transport = transport
         self.peer_views = peer_views
         self.release_count = 0
         self.__class__.instances.append(self)
 
     def release(self):
         self.release_count += 1
-        try:
-            self.weight_buffer.release()
-        finally:
+        errors = []
+        if self._weight_buffer is not None:
             try:
-                self.transport.release()
-            finally:
-                self.peer_views.clear()
+                self._weight_buffer.release()
+            except BaseException as error:
+                errors.append(error)
+            else:
+                self._weight_buffer = None
+        if self._transport is not None:
+            try:
+                self._transport.release()
+            except BaseException as error:
+                errors.append(error)
+            else:
+                self._transport = None
+        if self._weight_buffer is None and self._transport is None:
+            self.peer_views.clear()
+        if len(errors) == 1:
+            raise errors[0]
+        if errors:
+            raise RuntimeError("multiple fake resource releases failed") from errors[0]
 
 
 class _Experts(_FusedMoE):
@@ -259,8 +278,9 @@ class TestDwdpSetupTransaction(unittest.TestCase):
         _EVENTS.clear()
         _Transport.fail_create = False
         _Transport.fail_commit = False
+        _Transport.fail_release_once = False
         _Buffer.fail_create = False
-        _Buffer.fail_release = False
+        _Buffer.fail_release_once = False
         _WeightManager.fail_create = False
         self.model = _Model()
         self.experts = [layer.experts for layer in self.model.layers]
@@ -349,7 +369,7 @@ class TestDwdpSetupTransaction(unittest.TestCase):
 
         _Transport.fail_create = False
         _Buffer.fail_create = False
-        _Buffer.fail_release = False
+        _Buffer.fail_release_once = False
         _WeightManager.fail_create = False
         _Transport.fail_commit = False
         self.fail_allgather_call = None
@@ -408,13 +428,69 @@ class TestDwdpSetupTransaction(unittest.TestCase):
 
     def test_buffer_release_error_still_releases_transport_once(self):
         _Transport.fail_commit = True
-        _Buffer.fail_release = True
+        _Buffer.fail_release_once = True
         with self.assertRaisesRegex(RuntimeError, "weight buffer release"):
             self._run_setup()
         self._assert_model_restored()
         self.assertEqual(_Buffer.instances[0].release_count, 1)
         self.assertEqual(_Transport.instances[0].release_count, 1)
         self.assertEqual(_WeightManager.instances[0].release_count, 1)
+
+    def test_cleanup_retries_only_failed_buffer_release(self):
+        self._run_setup()
+        weight_manager = self.manager._weight_manager
+        buffer = weight_manager._weight_buffer
+        transport = weight_manager._transport
+        _Buffer.fail_release_once = True
+
+        with (
+            patch.object(_MODULE.torch.cuda, "synchronize"),
+            self.assertRaisesRegex(RuntimeError, "weight buffer release"),
+        ):
+            self.manager.cleanup()
+
+        self.assertIs(self.manager._weight_manager, weight_manager)
+        self.assertIs(weight_manager._weight_buffer, buffer)
+        self.assertIsNone(weight_manager._transport)
+        self.assertEqual(buffer.release_count, 1)
+        self.assertEqual(transport.release_count, 1)
+
+        with patch.object(_MODULE.torch.cuda, "synchronize"):
+            self.manager.cleanup()
+        self.assertIsNone(self.manager._weight_manager)
+        self.assertIsNone(weight_manager._weight_buffer)
+        self.assertIsNone(weight_manager._transport)
+        self.assertEqual(buffer.release_count, 2)
+        self.assertEqual(transport.release_count, 1)
+        self.assertEqual(weight_manager.peer_views, {})
+
+    def test_cleanup_retries_only_failed_transport_release(self):
+        self._run_setup()
+        weight_manager = self.manager._weight_manager
+        buffer = weight_manager._weight_buffer
+        transport = weight_manager._transport
+        _Transport.fail_release_once = True
+
+        with (
+            patch.object(_MODULE.torch.cuda, "synchronize"),
+            self.assertRaisesRegex(RuntimeError, "transport release"),
+        ):
+            self.manager.cleanup()
+
+        self.assertIs(self.manager._weight_manager, weight_manager)
+        self.assertIsNone(weight_manager._weight_buffer)
+        self.assertIs(weight_manager._transport, transport)
+        self.assertEqual(buffer.release_count, 1)
+        self.assertEqual(transport.release_count, 1)
+
+        with patch.object(_MODULE.torch.cuda, "synchronize"):
+            self.manager.cleanup()
+        self.assertIsNone(self.manager._weight_manager)
+        self.assertIsNone(weight_manager._weight_buffer)
+        self.assertIsNone(weight_manager._transport)
+        self.assertEqual(buffer.release_count, 1)
+        self.assertEqual(transport.release_count, 2)
+        self.assertEqual(weight_manager.peer_views, {})
 
     def test_validation_midloop_restores_all_state_and_retries(self):
         self.experts[1].fail_validate = True

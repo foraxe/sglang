@@ -1,28 +1,44 @@
 {
-  "classification": "PASS",
+  "classification": "FAIL",
   "model": "/home/yunzhi.nyx/h20_team/models/gpt-oss-20b",
-  "config": {"gpus": [0, 1], "tp_size": 2, "dwdp_size": 2, "mem_fraction_static": 0.8},
-  "native": {
-    "load_weight_s": 5.12,
-    "steady_hbm_mib": [80990, 81014],
-    "prefill": {"prompt_tokens": 3500, "elapsed_s": 0.2395254541, "output_sha256": "4f5a2ada1166172aa1744ca79a54e169d0a38da140fd0e02c6b0c68a4efbca90"},
-    "decode_32_token_elapsed_s": [1.6252841670, 1.6305274274, 1.5600021519],
-    "decode_output_sha256": "f400dd7351c519f568c62b000a48c336ab5c721ab3fde902798bfbba95bace5e"
+  "config": {
+    "gpus": [0, 1],
+    "tp_size": 2,
+    "dwdp_size": 2,
+    "mem_fraction_static": 0.8,
+    "disable_radix_cache": true,
+    "prompt_sha256": "075051f88e0f1d025744c6d26fd20a1207bbd22e3da29b0b8bbd3112aa036faf"
   },
-  "cotensor": {
-    "load_weight_s": 3.29,
-    "steady_hbm_mib": [81008, 81078],
-    "prefill": {"prompt_tokens": 3500, "elapsed_s": 0.6572684161, "output_sha256": "4f5a2ada1166172aa1744ca79a54e169d0a38da140fd0e02c6b0c68a4efbca90"},
-    "decode_32_token_elapsed_s": [1.6303554717, 1.5615298692, 1.5599813033],
-    "decode_output_sha256": "f400dd7351c519f568c62b000a48c336ab5c721ab3fde902798bfbba95bace5e"
+  "gates": {
+    "output_equality": {"classification": "PASS"},
+    "streaming_ttft_median_regression_le_3_percent": {
+      "classification": "PASS",
+      "native_ms": 190.949366,
+      "cotensor_ms": 190.187042,
+      "regression_percent": -0.3992
+    },
+    "prefill_proxy_median_regression_le_3_percent": {
+      "classification": "PASS",
+      "native_ms": 235.968355,
+      "cotensor_ms": 236.374572,
+      "regression_percent": 0.1721
+    },
+    "candidate_hbm_le_baseline": {
+      "classification": "FAIL",
+      "native_mib": [80990, 81014],
+      "cotensor_mib": [81008, 81078],
+      "candidate_minus_baseline_max_mib": 64
+    }
   },
-  "derived": {
-    "native_decode_median_tok_s": 19.69,
-    "cotensor_decode_median_tok_s": 20.50,
-    "cotensor_vs_native_decode_percent": 4.1,
-    "native_prefill_tok_s": 14612.2,
-    "cotensor_prefill_tok_s": 5325.1,
-    "cotensor_minus_native_max_hbm_mib": 64
+  "raw_evidence": {
+    "native": "ttft-native-raw.json",
+    "cotensor": "ttft-cotensor-raw.json",
+    "postflight": "postflight-ttft.txt"
   },
-  "limitations": "HTTP non-streaming max_new_tokens=1 latency is a prefill/E2E proxy, not token-stream TTFT. Single-run directional data; prefill variance is high and is not a performance acceptance claim."
+  "prior_directional_decode": {
+    "native_median_tok_s": 19.69,
+    "cotensor_median_tok_s": 20.50,
+    "cotensor_vs_native_percent": 4.1
+  },
+  "notes": "TTFT is measured from client monotonic request start to the first SSE response containing non-empty generated text. Each backend used one warmup and three measured rows. Strict overall E2 is FAIL solely because candidate steady HBM exceeded baseline by 64 MiB."
 }
