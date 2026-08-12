@@ -1,0 +1,1262 @@
+[
+  {
+    "index": 0,
+    "block": 0,
+    "position": 0,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80648,
+        0
+      ],
+      [
+        1,
+        81098,
+        100
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1193.206652,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "817b13af419c49e79195adaea46e52b6",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.191153820604086,
+        "response_sent_to_client_ts": 1786508911.465829
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 1,
+    "block": 0,
+    "position": 1,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        100
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1091.219635,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "0d030a95b92c4a83810103d8e2998ba8",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.088966803625226,
+        "response_sent_to_client_ts": 1786508975.522492
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 2,
+    "block": 0,
+    "position": 2,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        100
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1058.112241,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "17dcc64628064166ae2643c311363a2c",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.056009829044342,
+        "response_sent_to_client_ts": 1786509050.825474
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 3,
+    "block": 0,
+    "position": 3,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        62
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1038.311177,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "8098aa75f8474d81bab74baa516bf126",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.0360773503780365,
+        "response_sent_to_client_ts": 1786509112.7045946
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 4,
+    "block": 1,
+    "position": 0,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        81030,
+        100
+      ],
+      [
+        1,
+        80636,
+        0
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1040.996992,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "86387a4ecb524b0688ac8b32e2e42ef2",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 0,
+        "e2e_latency": 1.0385123565793037,
+        "response_sent_to_client_ts": 1786509173.8148847
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 5,
+    "block": 1,
+    "position": 1,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        100
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1037.857554,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "794d79a73100480080fb90c89b038174",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.0356005690991879,
+        "response_sent_to_client_ts": 1786509236.463032
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 6,
+    "block": 1,
+    "position": 2,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        100
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1039.389852,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "8f10096660ea4e6b9dd1618956ce3446",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.036680905148387,
+        "response_sent_to_client_ts": 1786509336.4854734
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 7,
+    "block": 1,
+    "position": 3,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        81030,
+        75
+      ],
+      [
+        1,
+        80636,
+        0
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1052.39759,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "2e6862c58c924dd6bff6f6ae4e851789",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 0,
+        "e2e_latency": 1.0502136833965778,
+        "response_sent_to_client_ts": 1786509397.956078
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 8,
+    "block": 2,
+    "position": 0,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        81030,
+        100
+      ],
+      [
+        1,
+        80636,
+        0
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1036.842069,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "ac0e0225c34b4f03aafbea516b1c31d1",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 0,
+        "e2e_latency": 1.0346658639609814,
+        "response_sent_to_client_ts": 1786509459.2349114
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 9,
+    "block": 2,
+    "position": 1,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        81030,
+        100
+      ],
+      [
+        1,
+        80636,
+        0
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1044.474267,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "15001ae261d6410e97e3340973a1ab37",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 0,
+        "e2e_latency": 1.0423562247306108,
+        "response_sent_to_client_ts": 1786509519.723918
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 10,
+    "block": 2,
+    "position": 2,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        81030,
+        100
+      ],
+      [
+        1,
+        80636,
+        0
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1059.620552,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "99ac62483de3446c937cf98a33778e57",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 0,
+        "e2e_latency": 1.0573940109461546,
+        "response_sent_to_client_ts": 1786509581.0375297
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 11,
+    "block": 2,
+    "position": 3,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        94
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1036.413735,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "87f2095d244d42a982d2ff840e547d81",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.0342020578682423,
+        "response_sent_to_client_ts": 1786509645.9677482
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 12,
+    "block": 3,
+    "position": 0,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        100
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1040.791314,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "f4dc2af4fac44f4b8b8f69cfc96d3a85",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.038693841546774,
+        "response_sent_to_client_ts": 1786509707.6014147
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 13,
+    "block": 3,
+    "position": 1,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        100
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1043.695607,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "e42f392ac3b646da8228744e2ab20fe0",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.0415365807712078,
+        "response_sent_to_client_ts": 1786509770.0400834
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 14,
+    "block": 3,
+    "position": 2,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        81030,
+        100
+      ],
+      [
+        1,
+        80636,
+        0
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1037.879975,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "d17ab99524ea4961b2e231b306a2b207",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 0,
+        "e2e_latency": 1.0356411002576351,
+        "response_sent_to_client_ts": 1786509832.2109823
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 15,
+    "block": 3,
+    "position": 3,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        100
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1039.428649,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "dec861b0b1764db1ab0f337e117ba09a",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.0372996125370264,
+        "response_sent_to_client_ts": 1786509891.6161003
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 16,
+    "block": 4,
+    "position": 0,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        73
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1044.169106,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "699983a9ee264a3b8e89919fcc8faeba",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.0419375374913216,
+        "response_sent_to_client_ts": 1786509953.3212051
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 17,
+    "block": 4,
+    "position": 1,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        81030,
+        100
+      ],
+      [
+        1,
+        80636,
+        0
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1039.139647,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "e666062afcbb4de8a4e9892ecdb4627d",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 0,
+        "e2e_latency": 1.0369286350905895,
+        "response_sent_to_client_ts": 1786510015.2111444
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 18,
+    "block": 4,
+    "position": 2,
+    "backend": "cotensor",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        81030,
+        100
+      ],
+      [
+        1,
+        80636,
+        0
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1039.997077,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "589e3a6fb2194471b7005f9cf515300a",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 0,
+        "e2e_latency": 1.0377122964709997,
+        "response_sent_to_client_ts": 1786510076.23342
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  },
+  {
+    "index": 19,
+    "block": 4,
+    "position": 3,
+    "backend": "native",
+    "pre_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "steady_gpu": [
+      [
+        0,
+        80588,
+        0
+      ],
+      [
+        1,
+        81078,
+        100
+      ]
+    ],
+    "warmup": {
+      "e2e_ms": 1041.639381,
+      "output_sha256": "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a",
+      "meta_info": {
+        "id": "05a3c731b9d5443c9e94a3cd71a9f9af",
+        "finish_reason": {
+          "type": "length",
+          "length": 16
+        },
+        "prompt_tokens": 3501,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 16,
+        "cached_tokens": 0,
+        "cached_tokens_details": null,
+        "dp_rank": 1,
+        "e2e_latency": 1.039466917514801,
+        "response_sent_to_client_ts": 1786510140.0694876
+      }
+    },
+    "post_gpu": [
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ]
+  }
+]

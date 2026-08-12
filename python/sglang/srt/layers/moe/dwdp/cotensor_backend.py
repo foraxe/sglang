@@ -254,6 +254,20 @@ class CoTensorDWDPTransport:
     def peer_views(self) -> Dict[Tuple[int, int, str], torch.Tensor]:
         return self._peer_views
 
+    @property
+    def hbm_probe_counts(self):
+        return {
+            "local_allocation_count": len(self._local_slabs),
+            "local_endpoint_count": len(self._handle_set.handles),
+            "local_physical_bytes": sum(self._handle_set.sizes.values()),
+            "peer_import_count": len(self._peer_endpoints),
+            "peer_map_count": len(self._peer_mappings),
+            "peer_view_count": len(self._peer_storage_tensors),
+            "peer_live_lease_count": sum(
+                mapping.live_tensors for mapping in self._peer_mappings
+            ),
+        }
+
     def release(self) -> None:
         if self._released:
             return
@@ -474,6 +488,24 @@ class CoTensorWeightBuffer:
 
     def get_full_tensor(self, layer_idx: int, name: str) -> torch.Tensor:
         return self._tensors[layer_idx][name]
+
+    @property
+    def hbm_probe_counts(self):
+        page_slabs = sum(len(slabs) for slabs in self._page_pool._slabs)
+        views = [view for layer_views in self._views.values() for view in layer_views]
+        return {
+            "page_pool_allocation_count": page_slabs,
+            "page_pool_physical_bytes": page_slabs * self._pool_page_size,
+            "page_pool_endpoint_count": sum(
+                len(endpoints) for endpoints in self._page_pool._endpoints
+            ),
+            "weight_slot_count": sum(len(slots) for slots in self._slots.values()),
+            "weight_map_count": len(views),
+            "weight_view_count": sum(
+                len(roots) for roots in self._view_roots.values()
+            ),
+            "weight_live_lease_count": sum(view.live_tensors for view in views),
+        }
 
     def get_remote_slices(self, layer_idx: int, name: str):
         return self._remote_slices[layer_idx][name]

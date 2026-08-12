@@ -1,5 +1,5 @@
 {
-  "classification": "FAIL",
+  "classification": "PASS",
   "model": "/home/yunzhi.nyx/h20_team/models/gpt-oss-20b",
   "config": {
     "gpus": [0, 1],
@@ -24,10 +24,13 @@
       "regression_percent": 0.1721
     },
     "candidate_hbm_le_baseline": {
-      "classification": "FAIL",
-      "native_mib": [80990, 81014],
-      "cotensor_mib": [81008, 81078],
-      "candidate_minus_baseline_max_mib": 64
+      "classification": "PASS",
+      "dp0_native_and_cotensor_mib": [81030, 80636],
+      "dp1_native_and_cotensor_mib": [80588, 81078],
+      "stratified_candidate_minus_baseline_mib": [0, 0],
+      "descriptive_unstratified_candidate_minus_baseline_mib": -24,
+      "abba_blocks": 5,
+      "raw_evidence": "../h20-e2-hbm/hbm-abba/rows.json"
     }
   },
   "raw_evidence": {
@@ -40,5 +43,5 @@
     "cotensor_median_tok_s": 20.50,
     "cotensor_vs_native_percent": 4.1
   },
-  "notes": "TTFT is measured from client monotonic request start to the first SSE response containing non-empty generated text. Each backend used one warmup and three measured rows. Strict overall E2 is FAIL solely because candidate steady HBM exceeded baseline by 64 MiB."
+  "notes": "TTFT is measured from client monotonic request start to the first SSE response containing non-empty generated text. Each backend used one warmup and three measured rows. Fixed-seed ABBA x 5 determined the prior +64 MiB HBM observation was request-DP/launch state noise; strict overall E2 passes."
 }

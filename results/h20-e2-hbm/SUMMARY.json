@@ -1,0 +1,226 @@
+{
+  "classification": "PASS",
+  "rows": 20,
+  "blocks": [
+    {
+      "block": 0,
+      "native_max_mib": [
+        81098,
+        81078
+      ],
+      "cotensor_max_mib": [
+        81078,
+        81078
+      ],
+      "median_delta_mib": -10.0
+    },
+    {
+      "block": 1,
+      "native_max_mib": [
+        81030,
+        81030
+      ],
+      "cotensor_max_mib": [
+        81078,
+        81078
+      ],
+      "median_delta_mib": 48.0
+    },
+    {
+      "block": 2,
+      "native_max_mib": [
+        81030,
+        81078
+      ],
+      "cotensor_max_mib": [
+        81030,
+        81030
+      ],
+      "median_delta_mib": -24.0
+    },
+    {
+      "block": 3,
+      "native_max_mib": [
+        81078,
+        81078
+      ],
+      "cotensor_max_mib": [
+        81078,
+        81030
+      ],
+      "median_delta_mib": -24.0
+    },
+    {
+      "block": 4,
+      "native_max_mib": [
+        81078,
+        81078
+      ],
+      "cotensor_max_mib": [
+        81030,
+        81030
+      ],
+      "median_delta_mib": -48.0
+    }
+  ],
+  "native_median_max_mib": 81078.0,
+  "cotensor_median_max_mib": 81054.0,
+  "all_output_hashes": [
+    "006bbd7d12d8ebdd3c4f1c76f518ea1a541e0b6ef5adb3d26c5ec2cd484ce67a"
+  ],
+  "all_postflight_idle": true,
+  "dp_ranks": [
+    1,
+    1,
+    1,
+    1,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    1,
+    1,
+    0,
+    0,
+    1
+  ],
+  "dp_rank_stratified": {
+    "0": {
+      "native": {
+        "all_rows_mib": [
+          [
+            81030,
+            80636
+          ],
+          [
+            81030,
+            80636
+          ],
+          [
+            81030,
+            80636
+          ]
+        ],
+        "steady_median_per_gpu_mib": [
+          81030,
+          80636
+        ]
+      },
+      "cotensor": {
+        "all_rows_mib": [
+          [
+            81030,
+            80636
+          ],
+          [
+            81030,
+            80636
+          ],
+          [
+            81030,
+            80636
+          ],
+          [
+            81030,
+            80636
+          ],
+          [
+            81030,
+            80636
+          ]
+        ],
+        "steady_median_per_gpu_mib": [
+          81030,
+          80636
+        ]
+      },
+      "delta_mib": [
+        0,
+        0
+      ]
+    },
+    "1": {
+      "native": {
+        "all_rows_mib": [
+          [
+            80648,
+            81098
+          ],
+          [
+            80588,
+            81078
+          ],
+          [
+            80588,
+            81078
+          ],
+          [
+            80588,
+            81078
+          ],
+          [
+            80588,
+            81078
+          ],
+          [
+            80588,
+            81078
+          ],
+          [
+            80588,
+            81078
+          ]
+        ],
+        "steady_median_per_gpu_mib": [
+          80588.0,
+          81078.0
+        ]
+      },
+      "cotensor": {
+        "all_rows_mib": [
+          [
+            80588,
+            81078
+          ],
+          [
+            80588,
+            81078
+          ],
+          [
+            80588,
+            81078
+          ],
+          [
+            80588,
+            81078
+          ],
+          [
+            80588,
+            81078
+          ]
+        ],
+        "steady_median_per_gpu_mib": [
+          80588,
+          81078
+        ]
+      },
+      "delta_mib": [
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "acceptance_basis": "DP-rank-stratified steady medians; first native cold row retained but excluded",
+  "strict_hbm_delta_mib": [
+    0,
+    0
+  ],
+  "descriptive_unstratified_delta_mib": -24
+}

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import time
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import torch
@@ -29,6 +32,30 @@ _EXPERT_WEIGHT_NAMES = (
     "w13_weight",
     "w2_weight",
 )
+
+
+def _hbm_probe(phase: str, device_id: int, **counts) -> None:
+    if os.environ.get("SGLANG_DWDP_HBM_PROBE") != "1":
+        return
+    payload = {
+        "event": "dwdp_hbm_probe",
+        "phase": phase,
+        "timestamp_ns": time.time_ns(),
+        "device": device_id,
+        "torch_allocated_bytes": torch.cuda.memory_allocated(device_id),
+        "torch_reserved_bytes": torch.cuda.memory_reserved(device_id),
+        "process_fd_count": len(os.listdir("/proc/self/fd")),
+        **counts,
+    }
+    try:
+        import pynvml
+
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
+        payload["nvml_used_bytes"] = pynvml.nvmlDeviceGetMemoryInfo(handle).used
+    except Exception as error:
+        payload["nvml_error"] = repr(error)
+    logger.info("DWDP_HBM_PROBE %s", json.dumps(payload, sort_keys=True))
 
 
 class DwdpManager:
@@ -94,6 +121,7 @@ class DwdpManager:
         weight_buffer = None
         small_param_restore = []
         try:
+            _hbm_probe("model_loaded_pre_transport", self.device_id)
             transport = transport_cls.create(
                 layer_weight_specs=layer_weight_specs,
                 local_params=local_params,
@@ -101,6 +129,8 @@ class DwdpManager:
                 layout=self.layout,
                 device_id=self.device_id,
             )
+            transport_counts = getattr(transport, "hbm_probe_counts", {})
+            _hbm_probe("transport_created", self.device_id, **transport_counts)
 
             weight_buffer = weight_buffer_cls.create(
                 layer_weight_specs=layer_weight_specs,
@@ -110,6 +140,8 @@ class DwdpManager:
                 dwdp_size=self.dwdp_size,
                 device_id=self.device_id,
             )
+            buffer_counts = getattr(weight_buffer, "hbm_probe_counts", {})
+            _hbm_probe("weight_buffer_created", self.device_id, **buffer_counts)
             self._fill_edge_bytes(weight_buffer, transport.peer_views)
 
             self._weight_manager = DWDPWeightManager(
@@ -133,11 +165,16 @@ class DwdpManager:
 
             for _, experts in moe_layers:
                 experts.validate_full_expert_weights_commit()
+            _hbm_probe("pre_commit", self.device_id)
             commit = getattr(transport, "commit", None)
             if commit is not None:
                 commit()
             for _, experts in moe_layers:
                 experts.commit_full_expert_weights()
+            _hbm_probe("post_commit", self.device_id)
+            if os.environ.get("SGLANG_DWDP_DIAGNOSTIC_EMPTY_CACHE") == "1":
+                torch.cuda.empty_cache()
+                _hbm_probe("post_commit_empty_cache", self.device_id)
         except BaseException:
             self._restore_small_params(small_param_restore)
             if self._weight_manager is not None:

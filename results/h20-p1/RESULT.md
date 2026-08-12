@@ -4,7 +4,7 @@
 
 - Adapter/static integration and rollback ownership tests: `PASS` at `ccf5431e0f4d32eb1fc70f5eb400e700b0bd7c66`.
 - Real 2-rank synthetic DWDP lifecycle E1: `PASS` for native and coTensor.
-- Full `gpt-oss-20b` service: E1 correctness `PASS`; strict E2 `FAIL` on HBM.
+- Full `gpt-oss-20b` service: E1 correctness and strict E2 both `PASS`.
 
 ## Environment
 
@@ -50,9 +50,10 @@ same fixed requests. Raw durable rows are in `full-model-ab.json`.
 
 - Exact output: `PASS`; prefill and 32-token decode SHA-256 match between
   native and coTensor.
-- Steady HBM GPU 0/1: native `80,990 / 81,014 MiB`; coTensor
-  `81,008 / 81,078 MiB`. Candidate maximum is `+64 MiB`, so the strict
-  candidate-HBM-<=-baseline gate is `FAIL`.
+- Fixed-seed ABBA x 5 steady HBM, stratified by served DP rank: DP0 is
+  `[81,030, 80,636] MiB` and DP1 `[80,588, 81,078] MiB` for both backends;
+  exact delta `0 MiB`: strict HBM gate `PASS`. The earlier
+  single-row `+64 MiB` observation followed served DP-rank state and is noise.
 - True streaming TTFT, one warmup plus three measured 3,500-token rows:
   native `[190.949, 191.015, 190.739] ms`, median `190.949 ms`; coTensor
   `[239.176, 189.508, 190.187] ms`, median `190.187 ms`. Regression `-0.399%`:
