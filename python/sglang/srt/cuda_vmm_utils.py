@@ -687,8 +687,6 @@ def exchange_posix_fds(
         missing = expected.difference(received_fds)
         extra = set(received_fds).difference(expected)
         if missing or extra:
-            for fd in received_fds.values():
-                os.close(fd)
             raise RuntimeError(
                 "POSIX fd exchange mismatch: "
                 f"missing={sorted(missing)[:8]}, extra={sorted(extra)[:8]}"

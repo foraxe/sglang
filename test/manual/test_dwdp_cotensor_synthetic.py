@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import json
 import os
 import time
@@ -131,13 +132,17 @@ def main() -> None:
     for layer_idx in range(2):
         for weight_idx, name in enumerate(("w13_weight", "w2_weight")):
             tensor = weight_buffer.get_full_tensor(layer_idx, name)
-            observed = tensor[:, 0].cpu().tolist()
-            expected = [
-                _pattern(global_expert, layer_idx, weight_idx)
-                for global_expert in range(4)
-            ]
-            mismatches += sum(a != b for a, b in zip(observed, expected))
-            hashes[f"{layer_idx}:{name}"] = float(tensor.double().sum().item())
+            expected = torch.stack(
+                [
+                    torch.full_like(
+                        tensor[0], _pattern(global_expert, layer_idx, weight_idx)
+                    )
+                    for global_expert in range(4)
+                ]
+            )
+            mismatches += int(torch.count_nonzero(tensor != expected).item())
+            payload = tensor.cpu().contiguous().numpy().tobytes()
+            hashes[f"{layer_idx}:{name}"] = hashlib.sha256(payload).hexdigest()
     del tensor
 
     dist.barrier()

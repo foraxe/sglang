@@ -457,6 +457,7 @@ class FusedMoE(torch.nn.Module):
         self.meta_overlap_args: Optional[dict] = None
 
         self._dwdp_bound = False
+        self._dwdp_restore_state = None
 
         if self.quant_method is not None and hasattr(self.quant_method, "runner"):
             self.runner = self.quant_method.runner
@@ -473,6 +474,33 @@ class FusedMoE(torch.nn.Module):
         Callers are weight-replication schemes that materialize all expert
         weights locally after load time (e.g. DWDP's composite-VA prefetch).
         """
+        if self._dwdp_bound or self._dwdp_restore_state is not None:
+            raise RuntimeError("DWDP expert weights are already bound")
+        self._dwdp_restore_state = {
+            "weights": {
+                name: getattr(self, name).data
+                if isinstance(getattr(self, name), torch.nn.Parameter)
+                else getattr(self, name)
+                for name in weights
+            },
+            "moe_ep_size": self.moe_ep_size,
+            "moe_ep_rank": self.moe_ep_rank,
+            "_num_local_routed": self._num_local_routed,
+            "num_local_experts": self.num_local_experts,
+            "runner_num_local_experts": self.moe_runner_config.num_local_experts,
+            "dispatcher": {
+                name: getattr(self.dispatcher, name)
+                for name in (
+                    "moe_ep_size",
+                    "moe_ep_rank",
+                    "num_local_experts",
+                    "num_local_routed_experts",
+                    "local_expert_mapping",
+                    "expert_mask_gpu",
+                )
+            },
+        }
+
         self.moe_ep_size = 1
         self.moe_ep_rank = 0
         self._num_local_routed = self._num_global_routed
@@ -491,17 +519,32 @@ class FusedMoE(torch.nn.Module):
 
         self._dwdp_bound = True
 
-    def unbind_full_expert_weights(self) -> None:
-        """Drop model aliases before the external DWDP mappings are unmapped."""
-        if not self._dwdp_bound:
+    def unbind_full_expert_weights(self, *, restore: bool = False) -> None:
+        """Drop mapped aliases and optionally restore the pre-DWDP state."""
+        state = self._dwdp_restore_state
+        if state is None:
             return
-        for name in ("w13_weight", "w2_weight"):
-            tensor = getattr(self, name, None)
-            if tensor is not None:
+        for name, original in state["weights"].items():
+            if restore:
+                self.replace_expert_tensor(name, original)
+            else:
                 self.replace_expert_tensor(
-                    name, torch.empty(0, dtype=tensor.dtype, device=tensor.device)
+                    name,
+                    torch.empty(0, dtype=original.dtype, device=original.device),
                 )
+        if restore:
+            for name in (
+                "moe_ep_size",
+                "moe_ep_rank",
+                "_num_local_routed",
+                "num_local_experts",
+            ):
+                setattr(self, name, state[name])
+            self.moe_runner_config.num_local_experts = state["runner_num_local_experts"]
+            for name, value in state["dispatcher"].items():
+                setattr(self.dispatcher, name, value)
         self._dwdp_bound = False
+        self._dwdp_restore_state = None
 
     def named_per_expert_tensors(
         self, num_local_experts: int
