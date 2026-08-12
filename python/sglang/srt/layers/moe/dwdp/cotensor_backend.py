@@ -255,6 +255,11 @@ class CoTensorDWDPTransport:
         self._peer_storage_tensors.clear()
         gc.collect()
         for mapping in self._peer_mappings:
+            if mapping.live_tensors != 0:
+                raise RuntimeError(
+                    "coTensor DWDP peer mapping still has live tensor aliases "
+                    f"during teardown: {mapping.live_tensors}"
+                )
             mapping.unbind()
         if self._peer_mappings:
             del mapping
@@ -476,6 +481,11 @@ class CoTensorWeightBuffer:
         gc.collect()
         for views in self._views.values():
             for view in views:
+                if view.live_tensors != 0:
+                    raise RuntimeError(
+                        "coTensor DWDP weight mapping still has live tensor aliases "
+                        f"during teardown: {view.live_tensors}"
+                    )
                 view.unbind()
         if self._views:
             del view
