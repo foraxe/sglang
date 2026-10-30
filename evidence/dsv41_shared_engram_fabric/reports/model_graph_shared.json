@@ -1,0 +1,124 @@
+[
+  {
+    "text": " | 323 | 17*19 = 323. \nWhat is 12 times 12? Return only the number. | 144 | 12",
+    "output_ids": [
+      369,
+      223,
+      18033,
+      369,
+      223,
+      1002,
+      12,
+      511,
+      438,
+      223,
+      18033,
+      16,
+      539,
+      3085,
+      344,
+      223,
+      736,
+      2734,
+      223,
+      736,
+      33,
+      20870,
+      1353,
+      270,
+      1167,
+      16,
+      369,
+      223,
+      9775,
+      369,
+      223,
+      736
+    ],
+    "meta_info": {
+      "id": "57fb14f0308b4d4c8e8c6601fbc397e5",
+      "finish_reason": {
+        "type": "length",
+        "length": 32
+      },
+      "prompt_tokens": 13,
+      "weight_version": "default",
+      "num_retractions": 0,
+      "reasoning_tokens": 0,
+      "completion_tokens": 32,
+      "cached_tokens": 0,
+      "weight_versions": [
+        {
+          "version": "default",
+          "start": 0,
+          "end": 32
+        }
+      ],
+      "cached_tokens_details": null,
+      "dp_rank": null,
+      "e2e_latency": 1.6207560561597347,
+      "response_sent_to_client_ts": 1793367792.991267
+    }
+  },
+  {
+    "text": " | 323 | 17*19 = 323. \nWhat is 12 times 12? Return only the number. | 144 | 12",
+    "output_ids": [
+      369,
+      223,
+      18033,
+      369,
+      223,
+      1002,
+      12,
+      511,
+      438,
+      223,
+      18033,
+      16,
+      539,
+      3085,
+      344,
+      223,
+      736,
+      2734,
+      223,
+      736,
+      33,
+      20870,
+      1353,
+      270,
+      1167,
+      16,
+      369,
+      223,
+      9775,
+      369,
+      223,
+      736
+    ],
+    "meta_info": {
+      "id": "cdd3e9add52d48a2a5b6ba5378fa855c",
+      "finish_reason": {
+        "type": "length",
+        "length": 32
+      },
+      "prompt_tokens": 13,
+      "weight_version": "default",
+      "num_retractions": 0,
+      "reasoning_tokens": 0,
+      "completion_tokens": 32,
+      "cached_tokens": 0,
+      "weight_versions": [
+        {
+          "version": "default",
+          "start": 0,
+          "end": 32
+        }
+      ],
+      "cached_tokens_details": null,
+      "dp_rank": null,
+      "e2e_latency": 1.140887170098722,
+      "response_sent_to_client_ts": 1793367794.1344097
+    }
+  }
+]

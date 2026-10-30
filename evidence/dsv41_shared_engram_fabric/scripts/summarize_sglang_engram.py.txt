@@ -1,0 +1,204 @@
+"""Build a compact, inspectable summary of the four-GB200 SGLang gates."""
+
+import hashlib
+import importlib.metadata
+import json
+import re
+import statistics
+from pathlib import Path
+
+ROOT = Path("/workspace/vllm_dsv41/artifacts/sglang-engram-shared")
+MODEL = Path("/data/models/DeepSeek-V4.1-Flash")
+SOURCE_COMMIT = "10aa8622272a523483ce731de23d3e63c0a6a81a"
+OWNER_COMMIT = "46706ee5e5ade3f622b6f606bbd05b84b06a9b96"
+FILES = (
+    "full_probe.json",
+    "full_owner.log",
+    "full_consumer.log",
+    "full_smoke.log",
+    "model_graph_shared.json",
+    "model_graph_shared.log",
+    "model_graph_owner.log",
+    "model_graph_smoke.log",
+    "pd_shared/report.json",
+    "pd_shared/owner.log",
+    "pd_shared/prefill.log",
+    "pd_shared/decode.log",
+    "pd_cpu/report.json",
+    "pd_cpu/prefill.log",
+    "pd_cpu/decode.log",
+    "pd_shared_8k_stream/report.json",
+    "pd_shared_8k_stream/owner.log",
+    "pd_shared_8k_stream/prefill.log",
+    "pd_shared_8k_stream/decode.log",
+    "pd_cpu_8k_stream/report.json",
+    "pd_cpu_8k_stream/prefill.log",
+    "pd_cpu_8k_stream/decode.log",
+)
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def owner_events(name: str) -> dict:
+    log = (ROOT / name).read_text()
+    return {
+        "attaches": log.count("ENGRAM_OWNER_ATTACH"),
+        "detaches": log.count("ENGRAM_OWNER_DETACH"),
+        "drain_waits": log.count("ENGRAM_OWNER_DRAIN_WAIT"),
+        "control_losses": log.count("lease control lost"),
+    }
+
+
+def phase_summary(report: dict) -> dict:
+    retained = report["retained"]
+    assert len(retained) == 3
+    assert all(row["completion_tokens"] == 32 for row in retained)
+    return {
+        "prompt_sha256": report["prompt_sha256"],
+        "source_commit_recorded": report["source_commit"],
+        "gpu_used_mib_at_ready": report["gpu_used_mib_at_ready"],
+        "retained_wall_seconds": [row["wall_seconds"] for row in retained],
+        "median_wall_seconds": statistics.median(
+            row["wall_seconds"] for row in retained
+        ),
+        "text_sha256": [row["text_sha256"] for row in retained],
+        "output_ids_sha256": [row["output_ids_sha256"] for row in retained],
+        "ttft_seconds": [row.get("ttft_seconds") for row in retained],
+        "tpot_seconds": [row.get("tpot_seconds") for row in retained],
+        "token_progress_events": [row.get("token_progress_events") for row in retained],
+    }
+
+
+def main() -> None:
+    full = json.loads((ROOT / "full_probe.json").read_text())
+    assert full["result"] == "pass"
+    assert [item["layer"] for item in full["tables"]] == [1, 14]
+    assert all(
+        len(item["positions"]) == 7
+        and item["rss_delta_at_attach"] < 256 * 2**20
+        and item["changed_ids_graph_replay"]
+        for item in full["tables"]
+    )
+    graph = json.loads((ROOT / "model_graph_shared.json").read_text())
+    assert len(graph) == 2
+    assert all(len(item["output_ids"]) == 32 for item in graph)
+    short = {
+        mode: json.loads((ROOT / f"pd_{mode}/report.json").read_text())
+        for mode in ("shared", "cpu")
+    }
+    long = {
+        mode: json.loads(
+            (ROOT / f"pd_{mode}_8k_stream/report.json").read_text()
+        )
+        for mode in ("shared", "cpu")
+    }
+    assert long["shared"]["source_commit"] == long["cpu"]["source_commit"]
+    assert long["shared"]["source_commit"] == SOURCE_COMMIT
+    assert long["shared"]["prompt_sha256"] == long["cpu"]["prompt_sha256"]
+    assert all(
+        row["prompt_tokens"] == 8192
+        and row["completion_tokens"] == 32
+        and row["token_progress_events"] == 32
+        for report in long.values()
+        for row in report["retained"]
+    )
+    short_text_matches = sum(
+        left["text_sha256"] == right["text_sha256"]
+        for left, right in zip(short["shared"]["retained"], short["cpu"]["retained"])
+    )
+    short_token_matches = sum(
+        left["output_ids_sha256"] == right["output_ids_sha256"]
+        for left, right in zip(short["shared"]["retained"], short["cpu"]["retained"])
+    )
+    cpu_resident = {}
+    for role in ("prefill", "decode"):
+        log = (ROOT / f"pd_cpu_8k_stream/{role}.log").read_text()
+        rows = [
+            (int(resident), int(huge))
+            for resident, huge in re.findall(
+                r"replication=none, (\d+) MiB resident, (\d+) MiB in huge pages",
+                log,
+            )
+        ]
+        assert len(rows) == 4
+        cpu_resident[role] = {
+            "rank_layer_rows": rows,
+            "resident_mib_sum": sum(item[0] for item in rows),
+            "huge_mib_sum": sum(item[1] for item in rows),
+        }
+    shared_rate = long["shared"]["concurrent"]["output_tokens_per_second"]
+    cpu_rate = long["cpu"]["concurrent"]["output_tokens_per_second"]
+    runtime_packages = (
+        "torch",
+        "sglang-kernel",
+        "flashinfer-python",
+        "sgl-deep-gemm",
+        "sgl-flash-mla",
+        "nixl",
+        "nixl-cu13",
+        "sglang-router",
+        "transformers",
+        "nvidia-cutlass-dsl",
+    )
+    summary = {
+        "source": {"sglang_commit": SOURCE_COMMIT, "owner_commit": OWNER_COMMIT},
+        "runtime": {
+            name: importlib.metadata.version(name) for name in runtime_packages
+        },
+        "hardware": "single host, 4x NVIDIA GB200, P TP2 GPUs 0/1, D TP2 GPUs 2/3",
+        "model": {
+            "path": str(MODEL),
+            "config_sha256": sha256(MODEL / "config.json"),
+            "index_sha256": sha256(MODEL / "model.safetensors.index.json"),
+        },
+        "table": {
+            "owner_bytes": sum(item["table_bytes"] for item in full["tables"]),
+            "ordinary_two_instance_bytes": 2
+            * sum(item["table_bytes"] for item in full["tables"]),
+            "saved_bytes_for_two_instances": sum(
+                item["table_bytes"] for item in full["tables"]
+            ),
+            "cpu_resident_mib": cpu_resident,
+        },
+        "component": {
+            "layers": [item["layer"] for item in full["tables"]],
+            "checked_rows_per_layer": [len(item["positions"]) for item in full["tables"]],
+            "rss_delta_at_attach_bytes": [
+                item["rss_delta_at_attach"] for item in full["tables"]
+            ],
+            "graph_changed_ids": True,
+            "owner": owner_events("full_owner.log"),
+        },
+        "full_model_decode_graph": {
+            "requests": 2,
+            "completion_tokens": [len(item["output_ids"]) for item in graph],
+            "identical_output_ids": graph[0]["output_ids"] == graph[1]["output_ids"],
+            "owner": owner_events("model_graph_owner.log"),
+        },
+        "pd_short": {
+            "shared": phase_summary(short["shared"]),
+            "cpu": phase_summary(short["cpu"]),
+            "matched_text_hashes": short_text_matches,
+            "matched_output_ids": short_token_matches,
+            "owner": owner_events("pd_shared/owner.log"),
+        },
+        "pd_8k_stream": {
+            "shared": phase_summary(long["shared"]),
+            "cpu": phase_summary(long["cpu"]),
+            "shared_c4_wall_seconds": long["shared"]["concurrent"]["wall_seconds"],
+            "cpu_c4_wall_seconds": long["cpu"]["concurrent"]["wall_seconds"],
+            "shared_c4_output_tokens_per_second": shared_rate,
+            "cpu_c4_output_tokens_per_second": cpu_rate,
+            "shared_to_cpu_c4_rate_ratio": shared_rate / cpu_rate,
+            "owner": owner_events("pd_shared_8k_stream/owner.log"),
+        },
+        "raw_local_sha256": {name: sha256(ROOT / name) for name in FILES},
+    }
+    (ROOT / "local_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    print(ROOT / "local_summary.json")
+
+
+if __name__ == "__main__":
+    main()

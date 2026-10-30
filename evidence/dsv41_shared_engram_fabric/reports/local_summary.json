@@ -1,0 +1,321 @@
+{
+  "source": {
+    "sglang_commit": "10aa8622272a523483ce731de23d3e63c0a6a81a",
+    "owner_commit": "46706ee5e5ade3f622b6f606bbd05b84b06a9b96"
+  },
+  "runtime": {
+    "torch": "2.14.1",
+    "sglang-kernel": "0.4.10",
+    "flashinfer-python": "0.7.2",
+    "sgl-deep-gemm": "0.2.3.post2",
+    "sgl-flash-mla": "1.0.0",
+    "nixl": "1.5.1",
+    "nixl-cu13": "1.5.1",
+    "sglang-router": "0.3.2",
+    "transformers": "5.19.0",
+    "nvidia-cutlass-dsl": "4.8.0"
+  },
+  "hardware": "single host, 4x NVIDIA GB200, P TP2 GPUs 0/1, D TP2 GPUs 2/3",
+  "model": {
+    "path": "/data/models/DeepSeek-V4.1-Flash",
+    "config_sha256": "8be45ce0476004a3f529fd896115a4a2e800a129ad2d3ec05b16050f52e21879",
+    "index_sha256": "74b0686a3d2891980d5e303251b075a3bccae2c2ff650747db2620a649b98fa8"
+  },
+  "table": {
+    "owner_bytes": 202758032400,
+    "ordinary_two_instance_bytes": 405516064800,
+    "saved_bytes_for_two_instances": 202758032400,
+    "cpu_resident_mib": {
+      "prefill": {
+        "rank_layer_rows": [
+          [
+            48340,
+            0
+          ],
+          [
+            48341,
+            0
+          ],
+          [
+            48342,
+            0
+          ],
+          [
+            48342,
+            0
+          ]
+        ],
+        "resident_mib_sum": 193365,
+        "huge_mib_sum": 0
+      },
+      "decode": {
+        "rank_layer_rows": [
+          [
+            48340,
+            0
+          ],
+          [
+            48341,
+            0
+          ],
+          [
+            48342,
+            0
+          ],
+          [
+            48342,
+            0
+          ]
+        ],
+        "resident_mib_sum": 193365,
+        "huge_mib_sum": 0
+      }
+    }
+  },
+  "component": {
+    "layers": [
+      1,
+      14
+    ],
+    "checked_rows_per_layer": [
+      7,
+      7
+    ],
+    "rss_delta_at_attach_bytes": [
+      0,
+      18874368
+    ],
+    "graph_changed_ids": true,
+    "owner": {
+      "attaches": 2,
+      "detaches": 2,
+      "drain_waits": 0,
+      "control_losses": 0
+    }
+  },
+  "full_model_decode_graph": {
+    "requests": 2,
+    "completion_tokens": [
+      32,
+      32
+    ],
+    "identical_output_ids": true,
+    "owner": {
+      "attaches": 4,
+      "detaches": 4,
+      "drain_waits": 0,
+      "control_losses": 0
+    }
+  },
+  "pd_short": {
+    "shared": {
+      "prompt_sha256": "f4278d6a132b71eaeb2bf2b4e15f3ea433d9f68b978bda0e7c38730a73280b6f",
+      "source_commit_recorded": "02cd9ff0a21f68d8adc716350baff653cc0eaaab",
+      "gpu_used_mib_at_ready": [
+        172868,
+        172174,
+        172988,
+        172988
+      ],
+      "retained_wall_seconds": [
+        4.5100100080017,
+        4.504810138139874,
+        4.539472701959312
+      ],
+      "median_wall_seconds": 4.5100100080017,
+      "text_sha256": [
+        "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a",
+        "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a",
+        "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a"
+      ],
+      "output_ids_sha256": [
+        "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20",
+        "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20",
+        "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20"
+      ],
+      "ttft_seconds": [
+        null,
+        null,
+        null
+      ],
+      "tpot_seconds": [
+        null,
+        null,
+        null
+      ],
+      "token_progress_events": [
+        null,
+        null,
+        null
+      ]
+    },
+    "cpu": {
+      "prompt_sha256": "f4278d6a132b71eaeb2bf2b4e15f3ea433d9f68b978bda0e7c38730a73280b6f",
+      "source_commit_recorded": "02cd9ff0a21f68d8adc716350baff653cc0eaaab",
+      "gpu_used_mib_at_ready": [
+        172832,
+        172832,
+        172986,
+        172986
+      ],
+      "retained_wall_seconds": [
+        5.880405400879681,
+        4.534435311099514,
+        4.562504624016583
+      ],
+      "median_wall_seconds": 4.562504624016583,
+      "text_sha256": [
+        "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a",
+        "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a",
+        "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a"
+      ],
+      "output_ids_sha256": [
+        "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20",
+        "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20",
+        "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20"
+      ],
+      "ttft_seconds": [
+        null,
+        null,
+        null
+      ],
+      "tpot_seconds": [
+        null,
+        null,
+        null
+      ],
+      "token_progress_events": [
+        null,
+        null,
+        null
+      ]
+    },
+    "matched_text_hashes": 3,
+    "matched_output_ids": 3,
+    "owner": {
+      "attaches": 8,
+      "detaches": 8,
+      "drain_waits": 0,
+      "control_losses": 0
+    }
+  },
+  "pd_8k_stream": {
+    "shared": {
+      "prompt_sha256": "f0d37cb9df693ff50d68ee984ca4d1c263b9d2bc315626e1d1631b62253d1307",
+      "source_commit_recorded": "10aa8622272a523483ce731de23d3e63c0a6a81a",
+      "gpu_used_mib_at_ready": [
+        172848,
+        172154,
+        172988,
+        172988
+      ],
+      "retained_wall_seconds": [
+        4.600213248981163,
+        4.602446604985744,
+        4.666748286224902
+      ],
+      "median_wall_seconds": 4.602446604985744,
+      "text_sha256": [
+        "7b3c9520ae70dcb33404e4f8e777c255842f5b5bd11b2c1e4450b107c6aebe04",
+        "52205f1e5f1668606de885f2a6fa5628d7c06d2fabec6ab7f82b5d484443d0e6",
+        "52205f1e5f1668606de885f2a6fa5628d7c06d2fabec6ab7f82b5d484443d0e6"
+      ],
+      "output_ids_sha256": [
+        "bcf846d22563685317cd01e1562f69e3346e0b7fca34e458eabaa804cbb4aa61",
+        "21bc027575adc66190c3568b60da90ad848ac4b7757d568d3f130cedeb21ac3a",
+        "21bc027575adc66190c3568b60da90ad848ac4b7757d568d3f130cedeb21ac3a"
+      ],
+      "ttft_seconds": [
+        0.33445845800451934,
+        0.34431710187345743,
+        0.32946393615566194
+      ],
+      "tpot_seconds": [
+        0.1375842901968187,
+        0.1373460468715958,
+        0.13989845767707354
+      ],
+      "token_progress_events": [
+        32,
+        32,
+        32
+      ]
+    },
+    "cpu": {
+      "prompt_sha256": "f0d37cb9df693ff50d68ee984ca4d1c263b9d2bc315626e1d1631b62253d1307",
+      "source_commit_recorded": "10aa8622272a523483ce731de23d3e63c0a6a81a",
+      "gpu_used_mib_at_ready": [
+        172822,
+        172822,
+        172986,
+        172986
+      ],
+      "retained_wall_seconds": [
+        4.634739860892296,
+        4.61033832305111,
+        4.64476910722442
+      ],
+      "median_wall_seconds": 4.634739860892296,
+      "text_sha256": [
+        "52205f1e5f1668606de885f2a6fa5628d7c06d2fabec6ab7f82b5d484443d0e6",
+        "52205f1e5f1668606de885f2a6fa5628d7c06d2fabec6ab7f82b5d484443d0e6",
+        "7b3c9520ae70dcb33404e4f8e777c255842f5b5bd11b2c1e4450b107c6aebe04"
+      ],
+      "output_ids_sha256": [
+        "21bc027575adc66190c3568b60da90ad848ac4b7757d568d3f130cedeb21ac3a",
+        "21bc027575adc66190c3568b60da90ad848ac4b7757d568d3f130cedeb21ac3a",
+        "bcf846d22563685317cd01e1562f69e3346e0b7fca34e458eabaa804cbb4aa61"
+      ],
+      "ttft_seconds": [
+        0.3345652879215777,
+        0.3411721079610288,
+        0.3273775060661137
+      ],
+      "tpot_seconds": [
+        0.13869462328993024,
+        0.13769834232516587,
+        0.13925404432079486
+      ],
+      "token_progress_events": [
+        32,
+        32,
+        32
+      ]
+    },
+    "shared_c4_wall_seconds": 9.935057922964916,
+    "cpu_c4_wall_seconds": 10.02958483202383,
+    "shared_c4_output_tokens_per_second": 12.883669223923459,
+    "cpu_c4_output_tokens_per_second": 12.762243118110343,
+    "shared_to_cpu_c4_rate_ratio": 1.009514479914648,
+    "owner": {
+      "attaches": 8,
+      "detaches": 8,
+      "drain_waits": 0,
+      "control_losses": 0
+    }
+  },
+  "raw_local_sha256": {
+    "full_probe.json": "7ba1fc1af5601b3693d40dd004732ab84b6804f15d5f6fa9b6533e887e3668f0",
+    "full_owner.log": "1d124112ca35d545387c4dd4e07468187f49a74eb5a339a217737e4c3927eb51",
+    "full_consumer.log": "e31bf4d635c69d415a19abe3d96366000597126f1f998fd2482ffb19ff683b3d",
+    "full_smoke.log": "5c9f6810229e230113d3217d03b7e85a1aa516605a02f14e653d3085f0ebc57f",
+    "model_graph_shared.json": "787b066c0725cd0fd2a431f2dbfdfa147fd0a8a81ca3eb294b7ea6af556adab9",
+    "model_graph_shared.log": "9a21c97d7499a981b4c96e12f7252c9d5f27fb34ad90c8c520630ee0f766e061",
+    "model_graph_owner.log": "fefec21d4c3fcb79b645f89517ac82a791fb433de586989203b629d2acc4a17c",
+    "model_graph_smoke.log": "289a4716ea48c9ab498d61d22aba428001956206e64d858dff30f0e489bc5a13",
+    "pd_shared/report.json": "b834e22fd2d8509f58b435fc1de28c4dd56fe9e5710216c2984e7086cd779029",
+    "pd_shared/owner.log": "60eff22705b6e4411d765e87704a22e54ae6dd5163f7ca740b9459b52d0dc1ab",
+    "pd_shared/prefill.log": "638a5ed5640a7563bd95fc2ad13e1505f08ee6cd6ad0361cb749f274e734f308",
+    "pd_shared/decode.log": "42b9269c5d960ae9b115b3c43c300881275c605e57df0b8f4c4eb636c9a0114e",
+    "pd_cpu/report.json": "643111adafe5737612b615b31d49e0f3f905aedf1458040453d00fdbe87b842c",
+    "pd_cpu/prefill.log": "e778d2e254031e8541d84d93013c9e789783780a1ffdbf7404f218c1386fad5a",
+    "pd_cpu/decode.log": "ba6e3a91cb9b9ed8b8a394aec7929bf89d71fc4dc48d318c148dbf48e8ee0d28",
+    "pd_shared_8k_stream/report.json": "1e809aedc901281463bad94272ac04ff3a2f3da153b0458972f08ddd7e719373",
+    "pd_shared_8k_stream/owner.log": "ecba1f565a2cef53c31225ff6fc3fd9cdd2183d192974a6468b8516e15c4ee9a",
+    "pd_shared_8k_stream/prefill.log": "e7e353c0166af6780330a7a433e7b97f1b958a3793fe20ac7c18befa72ce696e",
+    "pd_shared_8k_stream/decode.log": "e7f2745b5c4dce12af0866a895e8d05e2cca7fd2be402935c30c761a23ce4cf8",
+    "pd_cpu_8k_stream/report.json": "a80668f3bab6dbcaa62ed75007164fc926af099d2820468699ce45fc52b93cff",
+    "pd_cpu_8k_stream/prefill.log": "356920d7f7fba89ede4e4f6505ede24e7e02432f080e4fe8eae503a57bef22df",
+    "pd_cpu_8k_stream/decode.log": "739d18f4c5dc3a0591b5d0416200c80777416cf5d8271785c9f1f1508468dea0"
+  }
+}

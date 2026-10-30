@@ -1,0 +1,13 @@
+test_external_requires_complete_identity_and_direct_lookup (test_engram_external.TestExternalEngram.test_external_requires_complete_identity_and_direct_lookup) ... ok
+test_identity_rejection_releases_owner_lease_before_import (test_engram_external.TestExternalEngram.test_identity_rejection_releases_owner_lease_before_import) ... ok
+test_skip_large_table_before_get_tensor (test_engram_external.TestExternalEngram.test_skip_large_table_before_get_tensor) ... Loading safetensors checkpoint shards:   0% Completed | 0/1 [00:00<?, ?it/s]Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:00<00:00, 2263.52it/s]
+ok
+test_extend_history_clamps_pads_and_hashes_them_as_images (test_engram_history.TestEngramHistoryMultimodalPads.test_extend_history_clamps_pads_and_hashes_them_as_images) ... [CI Test Method] TestEngramHistoryMultimodalPads.test_extend_history_clamps_pads_and_hashes_them_as_images
+ok
+test_pd_prebuilt_history_clamps_pads (test_engram_history.TestEngramHistoryMultimodalPads.test_pd_prebuilt_history_clamps_pads) ... [CI Test Method] TestEngramHistoryMultimodalPads.test_pd_prebuilt_history_clamps_pads
+ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.051s
+
+OK

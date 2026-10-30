@@ -1,0 +1,287 @@
+{
+  "mode": "cpu",
+  "source_commit": "02cd9ff0a21f68d8adc716350baff653cc0eaaab",
+  "model": "/data/models/DeepSeek-V4.1-Flash",
+  "generation": null,
+  "prompt_sha256": "f4278d6a132b71eaeb2bf2b4e15f3ea433d9f68b978bda0e7c38730a73280b6f",
+  "gpu_used_mib_at_ready": [
+    172832,
+    172832,
+    172986,
+    172986
+  ],
+  "host_memfree_kib_before": {
+    "0": 89632704,
+    "1": 210364288
+  },
+  "host_memfree_kib_at_ready": {
+    "0": 214289024,
+    "1": 143825728
+  },
+  "warmup": {
+    "wall_seconds": 12.313745070947334,
+    "prompt_tokens": 13,
+    "completion_tokens": 32,
+    "output_ids": [
+      369,
+      223,
+      18033,
+      1004,
+      3085,
+      344,
+      223,
+      856,
+      2734,
+      223,
+      926,
+      33,
+      20870,
+      1353,
+      270,
+      1167,
+      16,
+      369,
+      223,
+      9186,
+      539,
+      3085,
+      344,
+      223,
+      907,
+      2734,
+      223,
+      864,
+      33,
+      20870,
+      1353,
+      270
+    ],
+    "text": " | 323 \n\nWhat is 15 times 16? Return only the number. | 240 \nWhat is 13 times 18? Return only the",
+    "text_sha256": "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a",
+    "output_ids_sha256": "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20",
+    "meta_info": {
+      "id": "fa777aac46354463b23a7ea30313185d",
+      "finish_reason": {
+        "type": "length",
+        "length": 32
+      },
+      "prompt_tokens": 13,
+      "weight_version": "default",
+      "num_retractions": 0,
+      "reasoning_tokens": 0,
+      "completion_tokens": 32,
+      "cached_tokens": 0,
+      "weight_versions": [
+        {
+          "version": "default",
+          "start": 0,
+          "end": 32
+        }
+      ],
+      "cached_tokens_details": null,
+      "dp_rank": null,
+      "e2e_latency": 12.309037651866674,
+      "response_sent_to_client_ts": 1793364856.0256548
+    }
+  },
+  "retained": [
+    {
+      "wall_seconds": 5.880405400879681,
+      "prompt_tokens": 13,
+      "completion_tokens": 32,
+      "output_ids": [
+        369,
+        223,
+        18033,
+        1004,
+        3085,
+        344,
+        223,
+        856,
+        2734,
+        223,
+        926,
+        33,
+        20870,
+        1353,
+        270,
+        1167,
+        16,
+        369,
+        223,
+        9186,
+        539,
+        3085,
+        344,
+        223,
+        907,
+        2734,
+        223,
+        864,
+        33,
+        20870,
+        1353,
+        270
+      ],
+      "text": " | 323 \n\nWhat is 15 times 16? Return only the number. | 240 \nWhat is 13 times 18? Return only the",
+      "text_sha256": "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a",
+      "output_ids_sha256": "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20",
+      "meta_info": {
+        "id": "0f552eeb54f547aab66a1fea2b432f69",
+        "finish_reason": {
+          "type": "length",
+          "length": 32
+        },
+        "prompt_tokens": 13,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 32,
+        "cached_tokens": 0,
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ],
+        "cached_tokens_details": null,
+        "dp_rank": null,
+        "e2e_latency": 5.876359201967716,
+        "response_sent_to_client_ts": 1793364861.906425
+      }
+    },
+    {
+      "wall_seconds": 4.534435311099514,
+      "prompt_tokens": 13,
+      "completion_tokens": 32,
+      "output_ids": [
+        369,
+        223,
+        18033,
+        1004,
+        3085,
+        344,
+        223,
+        856,
+        2734,
+        223,
+        926,
+        33,
+        20870,
+        1353,
+        270,
+        1167,
+        16,
+        369,
+        223,
+        9186,
+        539,
+        3085,
+        344,
+        223,
+        907,
+        2734,
+        223,
+        864,
+        33,
+        20870,
+        1353,
+        270
+      ],
+      "text": " | 323 \n\nWhat is 15 times 16? Return only the number. | 240 \nWhat is 13 times 18? Return only the",
+      "text_sha256": "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a",
+      "output_ids_sha256": "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20",
+      "meta_info": {
+        "id": "9b71e1924bf847d6a8385d1714df01f2",
+        "finish_reason": {
+          "type": "length",
+          "length": 32
+        },
+        "prompt_tokens": 13,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 32,
+        "cached_tokens": 0,
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ],
+        "cached_tokens_details": null,
+        "dp_rank": null,
+        "e2e_latency": 4.530742937931791,
+        "response_sent_to_client_ts": 1793364866.4410071
+      }
+    },
+    {
+      "wall_seconds": 4.562504624016583,
+      "prompt_tokens": 13,
+      "completion_tokens": 32,
+      "output_ids": [
+        369,
+        223,
+        18033,
+        1004,
+        3085,
+        344,
+        223,
+        856,
+        2734,
+        223,
+        926,
+        33,
+        20870,
+        1353,
+        270,
+        1167,
+        16,
+        369,
+        223,
+        9186,
+        539,
+        3085,
+        344,
+        223,
+        907,
+        2734,
+        223,
+        864,
+        33,
+        20870,
+        1353,
+        270
+      ],
+      "text": " | 323 \n\nWhat is 15 times 16? Return only the number. | 240 \nWhat is 13 times 18? Return only the",
+      "text_sha256": "e1a0db6611fb58d986b1e2488cbc0d9f77dae7b427a046e44e31369b3ad4288a",
+      "output_ids_sha256": "c732d8d15af4d6019be30ff002bde6b72c722de7a7d88d067660efdf4b483f20",
+      "meta_info": {
+        "id": "ac0e3990f9414ff0ae970f9426e0dc34",
+        "finish_reason": {
+          "type": "length",
+          "length": 32
+        },
+        "prompt_tokens": 13,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 32,
+        "cached_tokens": 0,
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ],
+        "cached_tokens_details": null,
+        "dp_rank": null,
+        "e2e_latency": 4.558695769868791,
+        "response_sent_to_client_ts": 1793364871.003574
+      }
+    }
+  ]
+}
