@@ -1,0 +1,25 @@
+python/sglang/kernels/ops/quantization/CP_PREFILL_128K_TRIAGE.md
+  s_cba67726621d03::t_8b1f0a620468fe 7,13,15-16
+python/sglang/kernels/ops/quantization/fp8_block32_act_quant.py
+  s_cba67726621d03::t_e84b2feb0f7282 11-16,159-160,164-266
+python/sglang/kernels/ops/quantization/test_fp8_block32_act_quant_fused.py
+  s_cba67726621d03::t_ba579b0051a3c7 1,15,19,23-28,30,32-50,52-53,69-74,77-85,87-89,92-94,96-105,107-109,115-118,123,126,132,143-145,166-172,174,176-178,181,184
+python/sglang/srt/models/deepseek_v2.py
+  s_cba67726621d03::t_e2bbdeaf3de997 490-510
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "039d2c249c22003eb973cd68ed10ed955a5d6167",
+  "prompts": {},
+  "sessions": {
+    "s_cba67726621d03": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fc1b4-6d68-7dc3-998d-aa51e18142ca",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
