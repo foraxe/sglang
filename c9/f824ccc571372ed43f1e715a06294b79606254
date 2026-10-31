@@ -1,0 +1,36 @@
+python/sglang/kernels/jit/csrc/deepseek_v4/mhc_post_combine_norm.cuh
+  h_02e4646417b93d 1-448
+python/sglang/kernels/ops/layernorm/mhc_post_combine_norm.py
+  h_02e4646417b93d 1-244
+python/sglang/kernels/ops/quantization/CP_PREFILL_128K_TRIAGE.md
+  h_02e4646417b93d 11,13,15
+python/sglang/kernels/ops/quantization/test_fp8_block32_act_quant_fused.py
+  h_02e4646417b93d 73,76-78,81,85-89,156-202,250-406,472-474,492-494
+python/sglang/srt/layers/attention/deepseek_v4_backend.py
+  h_02e4646417b93d 3419,3438,3512-3520,3523-3532,3565,3917,3947-3954,4015,4048
+python/sglang/srt/layers/attention/dsv4/dsv41_sparse.py
+  h_02e4646417b93d 73-100,290,293-297
+python/sglang/srt/layers/attention/dsv4/v41_indexer/scoring.py
+  h_02e4646417b93d 386-388,505-507
+python/sglang/srt/layers/attention/dsv4/v41_indexer/types.py
+  h_02e4646417b93d 5,72-73
+python/sglang/srt/models/deepseek_v4.py
+  h_02e4646417b93d 897,903-912,923,2283,2347,2506,2585-2587,2595,3378-3400
+python/sglang/srt/models/deepseek_v4_boundary.py
+  h_02e4646417b93d 39,226-230,234-238
+python/sglang/srt/models/deepseek_v4_cp_prefill.py
+  h_02e4646417b93d 1-684
+python/sglang/srt/models/deepseek_v4_mhc.py
+  h_02e4646417b93d 105-140,151-153,188-197,265-267,273-274,356-357,372-375,393-394,491-510,527,538-540,547,558-582,621-689,838,845-850,915-968,1001-1003
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c9f824ccc571372ed43f1e715a06294b79606254",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
