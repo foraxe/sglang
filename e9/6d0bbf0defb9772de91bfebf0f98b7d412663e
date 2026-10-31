@@ -1,0 +1,16 @@
+python/sglang/kernels/ops/quantization/CP_PREFILL_128K_TRIAGE.md
+  h_02e4646417b93d 11-15
+python/sglang/kernels/ops/quantization/test_fp8_block32_act_quant_fused.py
+  h_02e4646417b93d 207,210-217,273-278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e96d0bbf0defb9772de91bfebf0f98b7d412663e",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
