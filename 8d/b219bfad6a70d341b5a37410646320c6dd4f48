@@ -1,0 +1,20 @@
+python/sglang/srt/environ.py
+  h_02e4646417b93d 1984-1985
+python/sglang/srt/layers/engram.py
+  h_02e4646417b93d 1069
+python/sglang/srt/models/deepseek_v4.py
+  h_02e4646417b93d 3996
+test/registered/unit/layers/test_remote_engram.py
+  h_02e4646417b93d 10-14,24,73-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8db219bfad6a70d341b5a37410646320c6dd4f48",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
