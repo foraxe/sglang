@@ -1,0 +1,14 @@
+docs/docs/advanced_features/remote_engram_proposal.md
+  h_02e4646417b93d 60,84-98,106-107,146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6192e38b1db5e58539a222e486d39cd005efefa7",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
