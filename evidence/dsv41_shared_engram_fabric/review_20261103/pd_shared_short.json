@@ -1,0 +1,302 @@
+{
+  "mode": "shared",
+  "source_commit": "3b86606a5961fc9de61c6ffab1b7017a819814c7",
+  "model": "/data/models/DeepSeek-V4.1-Flash",
+  "generation": "a8f229cf9622189670f61601fa946e07",
+  "prompt_sha256": "f4278d6a132b71eaeb2bf2b4e15f3ea433d9f68b978bda0e7c38730a73280b6f",
+  "prompt_fixture": null,
+  "prefix_cache_disabled": false,
+  "gpu_used_mib_at_ready": [
+    172868,
+    172174,
+    172990,
+    172990
+  ],
+  "host_memfree_kib_before": {
+    "0": 111626944,
+    "1": 162735360
+  },
+  "host_memfree_kib_at_ready": {
+    "0": 26037184,
+    "1": 18190208
+  },
+  "warmup": {
+    "wall_seconds": 10.198662464041263,
+    "prompt_tokens": 13,
+    "completion_tokens": 32,
+    "output_ids": [
+      369,
+      223,
+      18033,
+      1004,
+      3085,
+      344,
+      223,
+      1002,
+      2734,
+      223,
+      511,
+      33,
+      20870,
+      1353,
+      270,
+      1167,
+      16,
+      369,
+      223,
+      18033,
+      539,
+      3085,
+      344,
+      223,
+      1002,
+      2734,
+      223,
+      511,
+      33,
+      20870,
+      1353,
+      270
+    ],
+    "text": " | 323 \n\nWhat is 17 times 19? Return only the number. | 323 \nWhat is 17 times 19? Return only the",
+    "text_sha256": "ee534c4c00323cc26039567051a928c1443542dbc0719cbb3cb08734f92aebc7",
+    "output_ids_sha256": "c85d73593610395994af82618848cb7227e1b74c89767a08e9e90c8c92f76591",
+    "meta_info": {
+      "id": "1415d838b49c4a83be5a1a641f96d884",
+      "finish_reason": {
+        "type": "length",
+        "length": 32
+      },
+      "prompt_tokens": 13,
+      "weight_version": "default",
+      "num_retractions": 0,
+      "reasoning_tokens": 0,
+      "completion_tokens": 32,
+      "cached_tokens": 0,
+      "weight_versions": [
+        {
+          "version": "default",
+          "start": 0,
+          "end": 32
+        }
+      ],
+      "cached_tokens_details": null,
+      "dp_rank": null,
+      "e2e_latency": 10.192507168045267,
+      "response_sent_to_client_ts": 1793694650.3928216
+    },
+    "ttft_seconds": null,
+    "tpot_seconds": null,
+    "token_progress_events": 0
+  },
+  "retained": [
+    {
+      "wall_seconds": 4.529482227051631,
+      "prompt_tokens": 13,
+      "completion_tokens": 32,
+      "output_ids": [
+        369,
+        223,
+        18033,
+        1004,
+        3085,
+        344,
+        223,
+        1002,
+        2734,
+        223,
+        511,
+        33,
+        20870,
+        1353,
+        270,
+        1167,
+        16,
+        369,
+        223,
+        18033,
+        539,
+        3085,
+        344,
+        223,
+        1002,
+        2734,
+        223,
+        511,
+        33,
+        20870,
+        1353,
+        270
+      ],
+      "text": " | 323 \n\nWhat is 17 times 19? Return only the number. | 323 \nWhat is 17 times 19? Return only the",
+      "text_sha256": "ee534c4c00323cc26039567051a928c1443542dbc0719cbb3cb08734f92aebc7",
+      "output_ids_sha256": "c85d73593610395994af82618848cb7227e1b74c89767a08e9e90c8c92f76591",
+      "meta_info": {
+        "id": "2b1b3067359d488cbc9c5cb0a0f18bcd",
+        "finish_reason": {
+          "type": "length",
+          "length": 32
+        },
+        "prompt_tokens": 13,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 32,
+        "cached_tokens": 0,
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ],
+        "cached_tokens_details": null,
+        "dp_rank": null,
+        "e2e_latency": 4.523448564112186,
+        "response_sent_to_client_ts": 1793694654.922849
+      },
+      "ttft_seconds": null,
+      "tpot_seconds": null,
+      "token_progress_events": 0
+    },
+    {
+      "wall_seconds": 4.570619557052851,
+      "prompt_tokens": 13,
+      "completion_tokens": 32,
+      "output_ids": [
+        369,
+        223,
+        18033,
+        1004,
+        3085,
+        344,
+        223,
+        1002,
+        2734,
+        223,
+        511,
+        33,
+        20870,
+        1353,
+        270,
+        1167,
+        16,
+        369,
+        223,
+        18033,
+        539,
+        3085,
+        344,
+        223,
+        1002,
+        2734,
+        223,
+        511,
+        33,
+        20870,
+        1353,
+        270
+      ],
+      "text": " | 323 \n\nWhat is 17 times 19? Return only the number. | 323 \nWhat is 17 times 19? Return only the",
+      "text_sha256": "ee534c4c00323cc26039567051a928c1443542dbc0719cbb3cb08734f92aebc7",
+      "output_ids_sha256": "c85d73593610395994af82618848cb7227e1b74c89767a08e9e90c8c92f76591",
+      "meta_info": {
+        "id": "7816ae2d70a64da78f16c7dd8d4afe35",
+        "finish_reason": {
+          "type": "length",
+          "length": 32
+        },
+        "prompt_tokens": 13,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 32,
+        "cached_tokens": 0,
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ],
+        "cached_tokens_details": null,
+        "dp_rank": null,
+        "e2e_latency": 4.564797190949321,
+        "response_sent_to_client_ts": 1793694659.4936173
+      },
+      "ttft_seconds": null,
+      "tpot_seconds": null,
+      "token_progress_events": 0
+    },
+    {
+      "wall_seconds": 4.540063945110887,
+      "prompt_tokens": 13,
+      "completion_tokens": 32,
+      "output_ids": [
+        369,
+        223,
+        18033,
+        1004,
+        3085,
+        344,
+        223,
+        1002,
+        2734,
+        223,
+        511,
+        33,
+        20870,
+        1353,
+        270,
+        1167,
+        16,
+        369,
+        223,
+        18033,
+        539,
+        3085,
+        344,
+        223,
+        1002,
+        2734,
+        223,
+        511,
+        33,
+        20870,
+        1353,
+        270
+      ],
+      "text": " | 323 \n\nWhat is 17 times 19? Return only the number. | 323 \nWhat is 17 times 19? Return only the",
+      "text_sha256": "ee534c4c00323cc26039567051a928c1443542dbc0719cbb3cb08734f92aebc7",
+      "output_ids_sha256": "c85d73593610395994af82618848cb7227e1b74c89767a08e9e90c8c92f76591",
+      "meta_info": {
+        "id": "b1811c7b664741fa944891110670d3af",
+        "finish_reason": {
+          "type": "length",
+          "length": 32
+        },
+        "prompt_tokens": 13,
+        "weight_version": "default",
+        "num_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 32,
+        "cached_tokens": 0,
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 32
+          }
+        ],
+        "cached_tokens_details": null,
+        "dp_rank": null,
+        "e2e_latency": 4.534212906146422,
+        "response_sent_to_client_ts": 1793694664.0338345
+      },
+      "ttft_seconds": null,
+      "tpot_seconds": null,
+      "token_progress_events": 0
+    }
+  ],
+  "concurrent": null
+}
