@@ -20,7 +20,7 @@ import time
 from contextlib import ExitStack
 from pathlib import Path
 
-from sglang.srt.engram_remote.owner_control import OwnerServer
+from sglang.srt.engram_share.rdma.owner_control import OwnerServer
 
 LAYERS = (1, 14)
 WEIGHT_DTYPE = "F8_E4M3"
@@ -403,7 +403,7 @@ class RealCheckpointOwner:
             ) + "pinned_max_round_threshold_mb:1024,pinned_max_cached_size_mb:1024"
         import torch
 
-        from sglang.srt.engram_remote.engram_transport import Context
+        from sglang.srt.engram_share.rdma.engram_transport import Context
 
         self.manifest = inspect_checkpoint(self.args.checkpoint)
         storage_layout = self.args.storage_layout
@@ -549,7 +549,7 @@ class RealCheckpointOwner:
                 break
             except Exception as exc:
                 # OwnerServer.close sets draining before refusing live leases.
-                from sglang.srt.engram_remote.owner_control import ControlError
+                from sglang.srt.engram_share.rdma.owner_control import ControlError
 
                 if not isinstance(exc, ControlError):
                     raise

@@ -2,7 +2,7 @@ import json
 import socket
 import unittest
 
-from sglang.srt.engram_remote.owner_control import (
+from sglang.srt.engram_share.rdma.owner_control import (
     ControlError,
     OwnerClient,
     OwnerServer,

@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import torch
 from safetensors import safe_open
 
-from sglang.srt.layers import remote_engram
+from sglang.srt.engram_share.rdma import provider as remote_engram
 
 
 def main():

@@ -94,7 +94,7 @@ On the owner node, set `MODEL`, `SHIM`, `OWNER_HOST` and an empty private
 `WORK` directory for your deployment, then run:
 
 ```bash
-python -m sglang.srt.engram_remote.owner \
+python -m sglang.srt.engram_share.rdma.owner \
   --checkpoint "$MODEL" --library "$SHIM" --owner-gpu 0 \
   --rdma-port 56001 --control-host 0.0.0.0 --advertise-host "$OWNER_HOST" \
   --control-port 56002 --ready-file "$WORK/owner.json" \

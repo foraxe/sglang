@@ -11,7 +11,7 @@ from pathlib import Path
 
 import torch
 
-from sglang.srt.engram_remote.owner_control import OwnerClient
+from sglang.srt.engram_share.rdma.owner_control import OwnerClient
 
 
 @contextmanager
@@ -146,7 +146,7 @@ class ReaderRuntime:
             4, int(os.environ.get("ENGRAM_SHARED_READ_LANES", "1"))
         )
         lanes = int(os.environ.get("ENGRAM_SHARED_READ_LANES", "1"))
-        from sglang.srt.engram_remote.read_plan import ReadPlan
+        from sglang.srt.engram_share.rdma.read_plan import ReadPlan
 
         graph_sizes = tuple(
             int(n)

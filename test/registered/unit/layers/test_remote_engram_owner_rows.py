@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sglang.srt.engram_remote.owner import (
+from sglang.srt.engram_share.rdma.owner import (
     MAX_COPY_CHUNK,
     _copy_and_sample_row264,
     build_owner_metadata,

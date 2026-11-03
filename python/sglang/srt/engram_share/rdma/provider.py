@@ -48,7 +48,7 @@ class RemoteEngramTable:
         if self.loaded != {"weight", "scale"}:
             raise RuntimeError("remote Engram checkpoint parameters not loaded")
         if _runtime is None:
-            from sglang.srt.engram_remote.runtime import ReaderRuntime
+            from sglang.srt.engram_share.rdma.runtime import ReaderRuntime
 
             _runtime = ReaderRuntime()
         self.runtime = _runtime
@@ -82,7 +82,7 @@ class RemoteEngramTable:
         ids, weight, _ = self.runtime.fetch(
             indices, self.layer_id, row_start, row_start + rows
         )
-        from sglang.srt.engram_remote.row264_kernels import gather_row264
+        from sglang.srt.engram_share.rdma.row264_kernels import gather_row264
 
         representatives = self.runtime.context.representatives(
             (1, 14).index(self.layer_id)

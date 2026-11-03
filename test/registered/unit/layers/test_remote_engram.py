@@ -14,7 +14,7 @@ register_cpu_ci(est_time=5, suite="base-a-test-cpu")
 
 
 def load_adapter():
-    path = Path(__file__).parents[4] / "python/sglang/srt/layers/remote_engram.py"
+    path = Path(__file__).parents[4] / "python/sglang/srt/engram_share/rdma/provider.py"
     spec = importlib.util.spec_from_file_location("test_remote_engram_adapter", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

@@ -4,9 +4,9 @@ import torch
 import triton
 import triton.language as tl
 
-from sglang.srt.engram_remote import dedup_rows
-from sglang.srt.engram_remote.engram_transport import Context
-from sglang.srt.engram_remote.read_group import ReadGroup
+from sglang.srt.engram_share.rdma import dedup_rows
+from sglang.srt.engram_share.rdma.engram_transport import Context
+from sglang.srt.engram_share.rdma.read_group import ReadGroup
 
 
 @triton.jit

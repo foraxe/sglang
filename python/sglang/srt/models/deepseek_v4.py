@@ -4007,7 +4007,7 @@ class DeepseekV4Model(nn.Module):
             and os.environ.get("ENGRAM_SHARED_PREFETCH") == "1"
         )
         if self.engram_hasher is not None and remote_prefetch:
-            from sglang.srt.layers.remote_engram import prepare_forward
+            from sglang.srt.engram_share.rdma.provider import prepare_forward
 
             prepare_forward(cp_extend)
         if self.engram_hasher is not None:
@@ -4019,7 +4019,7 @@ class DeepseekV4Model(nn.Module):
                 )
                 parallel = get_parallel()
                 if remote_prefetch:
-                    from sglang.srt.layers.remote_engram import prefetch_full_hash
+                    from sglang.srt.engram_share.rdma.provider import prefetch_full_hash
 
                     prefetch_full_hash(
                         hash_ids, hidden_states.shape[0], parallel.attn_cp_size
@@ -5653,6 +5653,7 @@ class DeepseekV4ForCausalLM(nn.Module):
                 skipped_checking_pattern not in p
                 for skipped_checking_pattern in skipped_checking_patterns
             )
+            and not getattr(params_dict[p], "engram_external", False)
         }
         if unloaded_params:
             logger.warning(
