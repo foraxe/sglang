@@ -1,0 +1,17 @@
+W1103 02:33:08.238000 444745 torch/utils/_pytree.py:630] <enum 'KernelPreference'> is an Enum subclass and is now natively supported by torch.compile as an opaque value type. Calling register_constant() on Enum subclasses is deprecated and will be an error in a future release.
+W1103 02:33:08.264000 444745 torch/utils/_pytree.py:630] <enum 'ScaleCalculationMode'> is an Enum subclass and is now natively supported by torch.compile as an opaque value type. Calling register_constant() on Enum subclasses is deprecated and will be an error in a future release.
+test_detach_follows_unmap_and_failed_unmap_retains_lease (__main__.TestExternalEngram.test_detach_follows_unmap_and_failed_unmap_retains_lease) ... [CI Test Method] TestExternalEngram.test_detach_follows_unmap_and_failed_unmap_retains_lease
+ok
+test_external_requires_complete_identity_and_direct_lookup (__main__.TestExternalEngram.test_external_requires_complete_identity_and_direct_lookup) ... [CI Test Method] TestExternalEngram.test_external_requires_complete_identity_and_direct_lookup
+ok
+test_identity_rejection_releases_owner_lease_before_import (__main__.TestExternalEngram.test_identity_rejection_releases_owner_lease_before_import) ... [CI Test Method] TestExternalEngram.test_identity_rejection_releases_owner_lease_before_import
+ok
+test_skip_large_table_before_get_tensor (__main__.TestExternalEngram.test_skip_large_table_before_get_tensor) ... [CI Test Method] TestExternalEngram.test_skip_large_table_before_get_tensor
+Loading safetensors checkpoint shards:   0% Completed | 0/1 [00:00<?, ?it/s]Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:00<00:00, 1948.12it/s]
+Multi-thread loading shards:   0% Completed | 0/1 [00:00<?, ?it/s]Multi-thread loading shards: 100% Completed | 1/1 [00:00<00:00, 6141.00it/s]
+ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.021s
+
+OK
