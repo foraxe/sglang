@@ -1,0 +1,16 @@
+python/sglang/srt/layers/remote_engram.py
+  h_02e4646417b93d 84-87,96-97
+test/registered/unit/layers/test_remote_engram.py
+  h_02e4646417b93d 6,63-97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "481b9d5c587f3c769236a885c0fb4118862825ee",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
