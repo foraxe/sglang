@@ -49,6 +49,8 @@ class ReaderRuntime:
         )
         self.lease = self.client.attach()
         self.context = None
+        self.peer_retirement = False
+        self._peers_bound = False
         self.closed = False
         try:
             self._prepare()
@@ -62,6 +64,8 @@ class ReaderRuntime:
             try:
                 if self.context is not None:
                     self.context.close()
+                if self.peer_retirement and not self._peers_bound:
+                    self.lease.bind_peers([])
                 self.lease.release()
             except BaseException:
                 # A failed device retirement must retain scratch and its lease.
@@ -85,6 +89,7 @@ class ReaderRuntime:
     def _prepare(self):
         md = self.lease.metadata
         self.metadata = md
+        self.peer_retirement = md.get("peer_retirement", False)
         self.storage_layout = md.get("storage_layout")
         if self.storage_layout != "row264":
             raise ValueError("remote Engram requires row264 storage")
@@ -168,6 +173,9 @@ class ReaderRuntime:
                 graph_sizes,
             )
         self.context.register([self.arena], host=False)
+        if self.peer_retirement:
+            self.lease.bind_peers([context.name for context in self.context.contexts])
+            self._peers_bound = True
         self.context.connect_raw(
             base64.b64decode(md["native_md"], validate=True),
             md["addresses"],

@@ -135,8 +135,14 @@ python test/manual/engram_remote_smoke.py
 
 After readers have stopped and drained, create the owner stop file and wait for
 it to exit. Failed readers can leave orphan leases; this prototype intentionally
-does not reclaim them on a timer. The older native backend can retain per-peer
-QP resources until owner exit, so repeated restarts require special care.
+does not reclaim them on a timer. The older native backend can retain per-peer QP resources until owner exit.
+As an optional research variant, a separately built [peer-retirement native
+branch](https://github.com/foraxe/nixl/tree/f89cdaa2) supports normal drained
+reader releases: build that native branch instead and set
+`ENGRAM_SHARED_RETIRE_PEERS=1` on the owner before starting it. The owner
+advertises this capability to its readers. A failed retirement retains the
+lease for retry. Crashed readers remain uncertain; this is not automatic crash
+recovery or a supported current-SDK interface.
 
 ## Research evidence and limits
 

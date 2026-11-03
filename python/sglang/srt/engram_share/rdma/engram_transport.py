@@ -38,9 +38,8 @@ class Context:
         ]
         lib.engram_destroy.argtypes = [C.c_void_p]
         lib.engram_record_consumed.argtypes = [C.c_void_p, C.c_uint64]
-        self.handle = lib.engram_create(
-            gpu, port, ("shared-engram-" + uuid.uuid4().hex).encode()
-        )
+        self.name = "shared-engram-" + uuid.uuid4().hex
+        self.handle = lib.engram_create(gpu, port, self.name.encode())
         if not self.handle:
             raise RuntimeError(lib.engram_last_error().decode())
         self.buffers = []
@@ -98,6 +97,13 @@ class Context:
             self.check(self.library.engram_destroy(self.handle))
             self.handle = None
             self.buffers.clear()
+
+    def retire_idle_peer(self, name):
+        if not self.handle or not isinstance(name, str) or not name:
+            raise ValueError("retirement needs a live owner and peer name")
+        fn = self.library.engram_retire_idle_peer
+        fn.argtypes = [C.c_void_p, C.c_char_p]
+        self.check(fn(self.handle, name.encode()))
 
     def record_consumed(self):
         self.check(

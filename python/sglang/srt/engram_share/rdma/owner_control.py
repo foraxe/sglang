@@ -67,7 +67,7 @@ class OwnerServer(AbstractContextManager):
     leases or claims that device work has completed.
     """
 
-    def __init__(self, metadata, host="127.0.0.1", port=0):
+    def __init__(self, metadata, host="127.0.0.1", port=0, retire_peer=None):
         if not isinstance(metadata, dict) or not isinstance(
             metadata.get("checkpoint_id"), str
         ):
@@ -79,7 +79,8 @@ class OwnerServer(AbstractContextManager):
         self.metadata = _freeze(json.loads(encoded))
         self.generation = secrets.token_urlsafe(24)
         self._lock = threading.RLock()
-        self._leases = set()
+        self._leases = {}
+        self._retire_peer = retire_peer
         self._draining = False
         self._closed = False
         owner = self
@@ -148,17 +149,60 @@ class OwnerServer(AbstractContextManager):
                 if self._draining:
                     raise ControlError("owner is draining")
                 lease = secrets.token_urlsafe(24)
-                self._leases.add(lease)
+                self._leases[lease] = None
                 return {
                     "metadata": json.loads(self._metadata_json),
                     "generation": self.generation,
                     "lease": lease,
                 }
+            if op == "bind_peers":
+                lease, peers = request.get("lease"), request.get("peers")
+                if not isinstance(lease, str) or lease not in self._leases:
+                    raise ControlError("unknown lease")
+                if self._retire_peer is None:
+                    raise ControlError("owner does not support peer retirement")
+                if self._leases[lease] is not None:
+                    raise ControlError("lease already bound")
+                if (
+                    not isinstance(peers, list)
+                    or len(peers) > 16
+                    or any(
+                        not isinstance(p, str)
+                        or not p.startswith("shared-engram-")
+                        or len(p) != 46
+                        for p in peers
+                    )
+                    or len(set(peers)) != len(peers)
+                ):
+                    raise ControlError("invalid peer identities")
+                reserved = {
+                    p
+                    for existing in self._leases.values()
+                    if existing
+                    for p in existing
+                }
+                if reserved.intersection(peers):
+                    raise ControlError("peer already bound")
+                self._leases[lease] = tuple(peers)
+                return {"bound": len(peers)}
             if op == "release":
                 lease = request.get("lease")
                 if not isinstance(lease, str) or lease not in self._leases:
                     raise ControlError("unknown or already released lease")
-                self._leases.remove(lease)
+                peers = self._leases[lease]
+                if self._retire_peer is not None and peers is None:
+                    raise ControlError(
+                        "lease must bind peers before release; lease retained"
+                    )
+                if peers:
+                    try:
+                        for peer in peers:
+                            self._retire_peer(peer)
+                    except Exception as exc:
+                        raise ControlError(
+                            f"peer retirement failed; lease retained: {exc}"
+                        ) from exc
+                del self._leases[lease]
                 return {"released": True}
             if op == "drain":
                 self._draining = True
@@ -231,6 +275,11 @@ class Lease(AbstractContextManager):
         self.client, self.token = client, token
         self.metadata = _freeze(metadata)
         self._released = False
+
+    def bind_peers(self, peers):
+        if self._released:
+            raise ControlError("lease already released")
+        return self.client._request("bind_peers", lease=self.token, peers=list(peers))
 
     def release(self):
         if self._released:

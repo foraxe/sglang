@@ -484,8 +484,17 @@ class RealCheckpointOwner:
             self.context.metadata(),
             storage_layout=storage_layout,
         )
+        retire_peers = os.environ.get("ENGRAM_SHARED_RETIRE_PEERS") == "1"
+        if retire_peers and not hasattr(
+            self.context.library, "engram_retire_idle_peer"
+        ):
+            raise RuntimeError("native library lacks owner peer retirement")
+        metadata["peer_retirement"] = retire_peers
         self.control = CountingOwnerServer(
-            metadata, host=self.args.control_host, port=self.args.control_port
+            metadata,
+            host=self.args.control_host,
+            port=self.args.control_port,
+            retire_peer=self.context.retire_idle_peer if retire_peers else None,
         ).start()
         self.ready = {
             "state": "ready",
