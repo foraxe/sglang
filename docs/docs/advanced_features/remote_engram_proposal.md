@@ -57,7 +57,7 @@ implementation remains a separate dependency.
 The experimental runtime validates checkpoint identity and registered table
 metadata. The following smoke and C8 measurements used this draft at commit
 `a4edaf95a27657069ac32f417e0857e926a1cf62`, before its later main-branch
-update; the updated head has not been remeasured. With the experimental runtime,
+update; they are not measurements of the later implementation. With the experimental runtime,
 one same-version H20 1P1D smoke ran
 the real model with 16K input and produced 64 output tokens matching a prior
 reference output exactly. The P used TP8/CP8, bounded replay disabled and the
@@ -81,6 +81,21 @@ the sample is not a production or p99 qualification. The 1-QP path had a
 prefetch changes improved that matching-input round by 12.44%, but individual
 contributions and multi-run 1-QP variance were not isolated.
 
+On the independently ported SGLang code at commit
+`e9b0b3f9cca80a060292e3cd13fa575e63e9122d`, a separate H20 experiment
+ran the real model in 1P1D with DSpark, TP8/CP8 prefill, DP8 decode and
+Mooncake KV transfer. One 512-input/8-output request and repeated C8,
+16K-input/64-output runs completed. Each measured round had 32 requests,
+eight disjoint warmups and no measured prefix-cache hits. The same 32 outputs
+matched across all reported rounds. With the same D process throughout,
+the Native P TTFT p50 was 7.140, 7.736 and 8.743 seconds; Shared P was
+7.810 seconds before those Native rounds and 7.534, 8.582 and 8.877 seconds
+afterward. TPOT p50 was approximately 3.12 ms for both. These repeated rounds
+reuse the same request set and show substantial time variation; they do not
+establish a reliable percentage overhead, production tail latency, or a
+comparison with the earlier measurements. The native peer-retirement
+variant below was used for this experiment.
+
 ### Starting the research owner and reader
 
 The Python owner and reader are included in this PR. The native library is
@@ -88,7 +103,8 @@ separate: build the legacy DOCA 3.1 research snapshot following the [NIXL
 reproducer](https://github.com/foraxe/nixl/tree/b5322e46f6e686ff16bdb3afb8a1a940a64e1163/research/vllm_engram_repro).
 Use the matching NIXL core and GPUNETIO plugin on both nodes. This is not a
 supported current-DOCA installation. Configure the local RDMA device, GID and
-OOB interface as required by that reproducer.
+OOB interface as required by that reproducer, including the plugin search
+path `NIXL_PLUGIN_DIR` on both owner and reader processes.
 
 On the owner node, set `MODEL`, `SHIM`, `OWNER_HOST` and an empty private
 `WORK` directory for your deployment, then run:
@@ -127,7 +143,7 @@ this experimental path. Keep the decode node on its native Engram path. These
 legacy `ENGRAM_SHARED_*` keys configure the research reader and native ABI;
 their final configuration surface is part of the design discussion. To check
 both checkpoint layers with one reader GPU, set `ENGRAM_SHARED_MAX_QUERIES=8192`
-and `ENGRAM_SHARED_READ_GRAPH_SIZES=4096`, then run:
+and `ENGRAM_SHARED_READ_GRAPH_SIZES=49152`, then run:
 
 ```bash
 python test/manual/engram_remote_smoke.py
