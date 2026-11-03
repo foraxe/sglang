@@ -1,0 +1,23 @@
+docs/docs/advanced_features/remote_engram_proposal.md
+  s_f4ecdc97fbe5c3::t_b95311b55bdb9a 52-53
+python/sglang/srt/layers/remote_engram.py
+  s_f4ecdc97fbe5c3::t_b80ce2adbd3cc8 56-57,78,82,85-98
+test/registered/unit/layers/test_remote_engram_owner_rows.py
+  s_f4ecdc97fbe5c3::t_fa55f2c3331ebd 1-5,7-12,15-18,20-60,62-177,179-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0c2dabfa3c1a4cb0e68924458df7d3720c740d38",
+  "prompts": {},
+  "sessions": {
+    "s_f4ecdc97fbe5c3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1a0b5-a6d4-72d0-a235-18ac3c6a5232",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
