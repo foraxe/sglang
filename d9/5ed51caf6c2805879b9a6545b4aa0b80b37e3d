@@ -1,0 +1,48 @@
+docs/docs/advanced_features/remote_engram_proposal.md
+  h_02e4646417b93d 1-185
+python/sglang/srt/engram_share/rdma/__init__.py
+  h_02e4646417b93d 1
+python/sglang/srt/engram_share/rdma/dedup_rows.py
+  h_02e4646417b93d 1-68
+python/sglang/srt/engram_share/rdma/engram_transport.py
+  h_02e4646417b93d 1-107
+python/sglang/srt/engram_share/rdma/owner.py
+  h_02e4646417b93d 1-645
+python/sglang/srt/engram_share/rdma/owner_control.py
+  h_02e4646417b93d 1-247
+python/sglang/srt/engram_share/rdma/provider.py
+  h_02e4646417b93d 1-108
+python/sglang/srt/engram_share/rdma/read_group.py
+  h_02e4646417b93d 1-179
+python/sglang/srt/engram_share/rdma/read_plan.py
+  h_02e4646417b93d 1-237
+python/sglang/srt/engram_share/rdma/row264_kernels.py
+  h_02e4646417b93d 1-69
+python/sglang/srt/engram_share/rdma/runtime.py
+  h_02e4646417b93d 1-342
+python/sglang/srt/environ.py
+  h_02e4646417b93d 1984-1985
+python/sglang/srt/layers/engram.py
+  h_02e4646417b93d 1068-1085,1152-1154,1166-1167,1250-1251,1271-1274
+python/sglang/srt/models/deepseek_v4.py
+  h_02e4646417b93d 6,4005-4012,4021-4026
+test/manual/engram_remote_smoke.py
+  h_02e4646417b93d 1-125
+test/registered/unit/layers/test_remote_engram.py
+  h_02e4646417b93d 1-98
+test/registered/unit/layers/test_remote_engram_owner.py
+  h_02e4646417b93d 1-107
+test/registered/unit/layers/test_remote_engram_owner_rows.py
+  h_02e4646417b93d 1-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d95ed51caf6c2805879b9a6545b4aa0b80b37e3d",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
