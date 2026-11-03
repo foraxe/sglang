@@ -1,0 +1,24 @@
+docs/docs/advanced_features/remote_engram_proposal.md
+  h_02e4646417b93d 138-145
+python/sglang/srt/engram_share/rdma/engram_transport.py
+  h_02e4646417b93d 41-42,101-107
+python/sglang/srt/engram_share/rdma/owner.py
+  h_02e4646417b93d 487-492,494-497
+python/sglang/srt/engram_share/rdma/owner_control.py
+  h_02e4646417b93d 70,82-83,152,158-187,192-205,279-283
+python/sglang/srt/engram_share/rdma/runtime.py
+  h_02e4646417b93d 52-53,67-68,92,176-178
+test/registered/unit/layers/test_remote_engram_retirement.py
+  h_02e4646417b93d 1-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e9b0b3f9cca80a060292e3cd13fa575e63e9122d",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
