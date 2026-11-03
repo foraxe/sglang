@@ -1,0 +1,42 @@
+docs/docs/advanced_features/remote_engram_proposal.md
+  h_02e4646417b93d 4,49-52,54-56,67-68,73-74,84-140
+python/sglang/srt/engram_remote/__init__.py
+  h_02e4646417b93d 1
+python/sglang/srt/engram_remote/dedup_rows.py
+  h_02e4646417b93d 1-68
+python/sglang/srt/engram_remote/engram_transport.py
+  h_02e4646417b93d 1-197
+python/sglang/srt/engram_remote/owner.py
+  h_02e4646417b93d 1-733
+python/sglang/srt/engram_remote/owner_control.py
+  h_02e4646417b93d 1-247
+python/sglang/srt/engram_remote/read_group.py
+  h_02e4646417b93d 1-193
+python/sglang/srt/engram_remote/read_lanes.py
+  h_02e4646417b93d 1-99
+python/sglang/srt/engram_remote/read_plan.py
+  h_02e4646417b93d 1-228
+python/sglang/srt/engram_remote/row264_kernels.py
+  h_02e4646417b93d 1-69
+python/sglang/srt/engram_remote/runtime.py
+  h_02e4646417b93d 1-458
+python/sglang/srt/layers/remote_engram.py
+  h_02e4646417b93d 3-5,51,92
+test/manual/engram_remote_smoke.py
+  h_02e4646417b93d 1-105
+test/registered/unit/layers/test_remote_engram.py
+  h_02e4646417b93d 89-94
+test/registered/unit/layers/test_remote_engram_owner.py
+  h_02e4646417b93d 1-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0580085ff2cc05301bea0f8bbb27b36df5fd77fa",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
