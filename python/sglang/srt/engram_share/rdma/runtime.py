@@ -39,8 +39,15 @@ _quarantined = []
 
 
 class ReaderRuntime:
-    def __init__(self):
+    def __init__(self, model_path):
+        from sglang.srt.engram_share.rdma.owner import inspect_checkpoint
+
+        # The engine provides its resolved checkpoint, not an unrelated env var.
+        checkpoint = inspect_checkpoint(Path(model_path))
         config = json.loads(Path(os.environ["ENGRAM_SHARED_READY"]).read_text())
+        if checkpoint["checkpoint_identity"] != config["checkpoint_id"]:
+            raise ValueError("shared owner/serving checkpoint identity mismatch")
+        self.model_path = Path(model_path)
         self.client = OwnerClient(
             config["host"],
             config["port"],
@@ -94,7 +101,7 @@ class ReaderRuntime:
         if self.storage_layout != "row264":
             raise ValueError("remote Engram requires row264 storage")
         # Validate actual serving checkpoint, not merely a same-shape table.
-        model = Path(os.environ["ENGRAM_SHARED_MODEL"])
+        model = self.model_path
         for name, field in (
             ("config.json", "config_sha256"),
             ("model.safetensors.index.json", "index_sha256"),

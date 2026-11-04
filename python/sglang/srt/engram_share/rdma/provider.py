@@ -12,6 +12,18 @@ import torch
 _runtime = None
 
 
+def weight_update_error():
+    return (
+        "Online weight updates are unsupported with remote Engram; "
+        "restart the model and owner with the same checkpoint."
+    )
+
+
+def validate_cp_size(cp_size):
+    if cp_size not in (1, 4, 8):
+        raise ValueError("remote Engram supports CP sizes 1, 4 and 8")
+
+
 def prepare_forward(cp_extend: bool):
     if _runtime is None or not _runtime.prefetch_enabled:
         raise RuntimeError("remote Engram prefetch runtime is not initialized")
@@ -25,12 +37,13 @@ def prefetch_full_hash(hash_ids, local_rows: int, cp_size: int):
 
 
 class RemoteEngramTable:
-    def __init__(self, num_embeddings: int, dim: int, layer_id: int):
+    def __init__(self, num_embeddings: int, dim: int, layer_id: int, model_path: str):
         if dim != 256 or layer_id not in (1, 14):
             raise ValueError("research remote Engram supports 256-wide layers 1 and 14")
         self.num_embeddings = num_embeddings
         self.dim = dim
         self.layer_id = layer_id
+        self.model_path = model_path
         self.loaded = set()
         self.runtime = None
 
@@ -50,7 +63,7 @@ class RemoteEngramTable:
         if _runtime is None:
             from sglang.srt.engram_share.rdma.runtime import ReaderRuntime
 
-            _runtime = ReaderRuntime()
+            _runtime = ReaderRuntime(self.model_path)
         self.runtime = _runtime
         layer_index = (1, 14).index(self.layer_id)
         expected = (self.num_embeddings * 264,)

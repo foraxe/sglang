@@ -28,7 +28,7 @@ def main():
     reader = None
     try:
         for layer, count in zip(layers, config["engram_num_embeddings"]):
-            table = remote_engram.RemoteEngramTable(int(count), 256, layer)
+            table = remote_engram.RemoteEngramTable(int(count), 256, layer, str(model))
             weight = torch.empty((0, 256), dtype=torch.float8_e4m3fn)
             scale = torch.empty((0, 8), dtype=torch.float8_e8m0fnu)
             table.check_weight(

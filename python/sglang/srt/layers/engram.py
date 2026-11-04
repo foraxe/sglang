@@ -1072,9 +1072,15 @@ class EngramEmbedding(nn.Module):
                 or config.replication != EngramReplication.NONE
             ):
                 raise ValueError("remote Engram requires per-rank CPU placement")
-            from sglang.srt.engram_share.rdma.provider import RemoteEngramTable
+            from sglang.srt.engram_share.rdma.provider import (
+                RemoteEngramTable,
+                validate_cp_size,
+            )
 
-            self.remote_table = RemoteEngramTable(num_embeddings, dim, layer_id)
+            validate_cp_size(get_parallel().attn_cp_size)
+            self.remote_table = RemoteEngramTable(
+                num_embeddings, dim, layer_id, get_model().model_path
+            )
             self.weight = nn.Parameter(
                 torch.empty((0, dim), dtype=torch.float8_e4m3fn), requires_grad=False
             )

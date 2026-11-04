@@ -55,7 +55,7 @@ def _safetensors_header(path):
 
 
 def inspect_checkpoint(root):
-    """Validate config/index/selected tensor headers without reading tensor data."""
+    """Identify the entire checkpoint and validate the selected tensor headers."""
     root = Path(root).resolve(strict=True)
     config_path = root / "config.json"
     index_path = root / "model.safetensors.index.json"
@@ -71,6 +71,20 @@ def inspect_checkpoint(root):
     weight_map = index.get("weight_map")
     if not isinstance(weight_map, dict):
         raise ValueError("safetensors index has no weight_map")
+
+    # Headers, shapes and even the complete index can be identical across two
+    # different checkpoints. Bind the owner to the actual model bytes.
+    shard_digests = {}
+    for shard_name in sorted(set(weight_map.values())):
+        if not isinstance(shard_name, str) or Path(shard_name).name != shard_name:
+            raise ValueError(f"unsafe checkpoint shard: {shard_name!r}")
+        shard_path = root / shard_name
+        shard_path.resolve(strict=True).relative_to(root)
+        digest = hashlib.sha256()
+        with shard_path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+                digest.update(chunk)
+        shard_digests[shard_name] = digest.hexdigest()
 
     specs, shard_headers = [], {}
     for layer, row_count in zip(LAYERS, rows):
@@ -134,6 +148,7 @@ def inspect_checkpoint(root):
     identity_material = {
         "config_sha256": _sha256(config_bytes),
         "index_sha256": _sha256(index_bytes),
+        "shard_sha256": shard_digests,
         "selected_shard_headers": header_records,
         "tensors": [
             {k: spec[k] for k in ("name", "dtype", "shape", "data_offsets", "shard")}

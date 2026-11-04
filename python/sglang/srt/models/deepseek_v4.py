@@ -4671,6 +4671,14 @@ class DeepseekV4ForCausalLM(nn.Module):
         prefix: str = "",
     ) -> None:
         super().__init__()
+        if envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get():
+            from sglang.srt.engram_share.rdma.provider import (
+                validate_cp_size,
+                weight_update_error,
+            )
+
+            validate_cp_size(get_parallel().attn_cp_size)
+            self._derived_weight_cache_error = weight_update_error()
         # DeepseekV4 enables, by default, the CK w8a8-block GEMM (MLA proj) and the
         # batched/contiguous-load rope kernels (faster on gfx95; .
         # Module-level toggles default OFF; flipped True here for DSV4

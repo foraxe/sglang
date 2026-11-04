@@ -1143,14 +1143,30 @@ def _drop_file_cache_after_load(path: str) -> None:
             os.close(fd)
 
 
+def _remote_engram_meta_tensor(handle, name):
+    """Read only metadata for the remote table, without materializing its payload."""
+    if not re.fullmatch(r"layers\.(1|14)\.engram\.embed\.(weight|scale)", name):
+        return None
+    view = handle.get_slice(name)
+    dtype = {"F8_E4M3": torch.float8_e4m3fn, "F8_E8M0": torch.float8_e8m0fnu}.get(
+        view.get_dtype()
+    )
+    if dtype is None:
+        raise ValueError(f"unsupported remote Engram checkpoint dtype for {name}")
+    return torch.empty(view.get_shape(), dtype=dtype, device="meta")
+
+
 def safetensors_weights_iterator(
     hf_weights_files: List[str],
     disable_mmap: bool = False,
     prefetch: bool = False,
     prefetch_num_threads: int = 4,
     drop_cache_after_load: bool = False,
+    remote_engram: bool = False,
 ) -> Generator[Tuple[str, torch.Tensor], None, None]:
     """Iterate over the weights in the model safetensor files."""
+    if remote_engram and disable_mmap:
+        raise ValueError("remote Engram requires the mmap safetensors loader")
     enable_tqdm = (
         not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0
     )
@@ -1176,7 +1192,10 @@ def safetensors_weights_iterator(
         else:
             with safetensors.safe_open(st_file, framework="pt", device="cpu") as f:
                 for name in f.keys():
-                    yield name, f.get_tensor(name)
+                    tensor = (
+                        _remote_engram_meta_tensor(f, name) if remote_engram else None
+                    )
+                    yield name, tensor if tensor is not None else f.get_tensor(name)
         if drop_cache_after_load:
             _drop_file_cache_after_load(st_file)
     if prefetch_handle is not None:
@@ -1330,6 +1349,7 @@ def buffered_multi_thread_safetensors_weights_iterator(
     prefetch: bool = False,
     prefetch_num_threads: int = 4,
     drop_cache_after_load: bool = False,
+    remote_engram: bool = False,
 ) -> Generator[Tuple[str, torch.Tensor], None, None]:
     """Multi-threaded safetensor loader with bounded memory via a sliding window.
 
@@ -1337,6 +1357,8 @@ def buffered_multi_thread_safetensors_weights_iterator(
     max_workers loading concurrently + 1 prefetched and ready to yield.
     Peak CPU RAM ≈ (max_workers + 2) × shard_file_size.
     """
+    if remote_engram and disable_mmap:
+        raise ValueError("remote Engram requires the mmap safetensors loader")
     prefetch_handle = None
     if prefetch and not disable_mmap:
         prefetch_handle = _prefetch_all_checkpoints(
@@ -1352,7 +1374,10 @@ def buffered_multi_thread_safetensors_weights_iterator(
                 result = safetensors.torch.load(f.read())
         else:
             with safetensors.safe_open(st_file, framework="pt", device="cpu") as f:
-                result = {k: f.get_tensor(k) for k in f.keys()}
+                result = {}
+                for k in f.keys():
+                    tensor = _remote_engram_meta_tensor(f, k) if remote_engram else None
+                    result[k] = tensor if tensor is not None else f.get_tensor(k)
         return result
 
     # Sliding window: max_workers loading + 1 prefetched.
@@ -1903,9 +1928,9 @@ class KVCacheQuantSchema(BaseModel):
                     f"{len(layer_maps)}."
                 )
             for i in range(tp_size):
-                assert i in self.scaling_factor, (
-                    f"KV cache scales map for TP rank {i} not found."
-                )
+                assert (
+                    i in self.scaling_factor
+                ), f"KV cache scales map for TP rank {i} not found."
         return self
 
     @model_validator(mode="after")
@@ -2053,9 +2078,9 @@ def pad_loaded_weight(loaded_weight, output_dim, output_sizes):
             int(output_size / total_output_size * raw_output_size)
             for output_size in output_sizes
         ]
-        assert sum(weight_split_size) == raw_output_size, (
-            f"Padding the loaded weight failed due to sizes are not divisible cleanly from {output_sizes} to {raw_output_size}"
-        )
+        assert (
+            sum(weight_split_size) == raw_output_size
+        ), f"Padding the loaded weight failed due to sizes are not divisible cleanly from {output_sizes} to {raw_output_size}"
 
         split_weight = loaded_weight.split_with_sizes(weight_split_size, dim=output_dim)
         for i, output_size in enumerate(output_sizes):

@@ -621,6 +621,14 @@ class DefaultModelLoader(BaseModelLoader):
         """Get an iterator for the model weights based on the load format."""
         extra_config = self.load_config.model_loader_extra_config
         use_multithread = extra_config.get("enable_multithread_load", True)
+        remote_engram = envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get()
+        if remote_engram and self.load_config.load_format not in (
+            LoadFormat.AUTO,
+            LoadFormat.SAFETENSORS,
+        ):
+            raise ValueError("remote Engram requires the mmap safetensors loader")
+        if remote_engram and get_model().weight_loader_disable_mmap:
+            raise ValueError("remote Engram requires the mmap safetensors loader")
 
         if resolved_source is None:
             hf_folder, hf_weights_files, use_safetensors = self._prepare_weights(
@@ -640,6 +648,9 @@ class DefaultModelLoader(BaseModelLoader):
             hf_folder = resolved_source.hf_folder
             hf_weights_files = list(resolved_source.weight_files)
             use_safetensors = resolved_source.use_safetensors
+
+        if remote_engram and not use_safetensors:
+            raise ValueError("remote Engram requires safetensors checkpoint files")
 
         if self.load_config.load_format == LoadFormat.NPCACHE:
             # Currently np_cache only support *.bin checkpoints
@@ -715,6 +726,7 @@ class DefaultModelLoader(BaseModelLoader):
                     prefetch=start_iterator_prefetch,
                     prefetch_num_threads=prefetch_num_threads,
                     drop_cache_after_load=weight_loader_drop_cache_after_load,
+                    remote_engram=remote_engram,
                 )
             else:
                 weights_iterator = safetensors_weights_iterator(
@@ -723,6 +735,7 @@ class DefaultModelLoader(BaseModelLoader):
                     prefetch=start_iterator_prefetch,
                     prefetch_num_threads=prefetch_num_threads,
                     drop_cache_after_load=weight_loader_drop_cache_after_load,
+                    remote_engram=remote_engram,
                 )
 
         else:
@@ -4174,6 +4187,35 @@ def get_model_loader(
     load_config: LoadConfig, model_config: Optional[ModelConfig] = None
 ) -> BaseModelLoader:
     """Get a model loader based on the load format."""
+
+    if envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get():
+        if load_config.load_format not in (LoadFormat.AUTO, LoadFormat.SAFETENSORS):
+            raise ValueError("remote Engram requires the mmap safetensors loader")
+        if model_config is not None and getattr(
+            model_config, "quantization", None
+        ) not in (
+            None,
+            "fp8",
+        ):
+            raise ValueError("remote Engram requires the standard FP8 model loader")
+        modelopt = getattr(load_config, "modelopt_config", None)
+        if (
+            model_config is not None and getattr(model_config, "modelopt_quant", None)
+        ) or (
+            modelopt is not None
+            and any(
+                getattr(modelopt, name, None)
+                for name in (
+                    "checkpoint_restore_path",
+                    "checkpoint_save_path",
+                    "export_path",
+                )
+            )
+        ):
+            raise ValueError(
+                "remote Engram does not support ModelOpt checkpoint workflows"
+            )
+        return DefaultModelLoader(load_config)
 
     if load_config.load_format == LoadFormat.DUMMY:
         return DummyModelLoader(load_config)

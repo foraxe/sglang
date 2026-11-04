@@ -124,7 +124,15 @@ Choose unused ports and adjust the pinned-memory budget for the checkpoint.
 Do not stop the owner while readers or their GPU work are active.
 
 On the prefill node, set `MODEL`, `SHIM` and `OWNER_READY` to the matching
-checkpoint, local native library, and securely copied ready file. In addition
+checkpoint, local native library, and securely copied ready file. The engine's
+actual model path determines the checkpoint identity; it must be a local,
+indexed safetensors checkpoint with bytes identical to the owner's checkpoint.
+The owner and each reader hash every indexed shard at startup, which can add
+substantial disk I/O and startup time for large models. Keep checkpoint files
+immutable while the service is running. Online weight updates are rejected;
+restart the engine and owner together to change checkpoint. The reader requires
+the mmap safetensors loader (`auto` or `safetensors`), and supports CP sizes
+1, 4 and 8. In addition
 to the usual SGLang P/D configuration, set:
 
 ```bash
@@ -142,7 +150,7 @@ Use `--engram-config '{"placement":"cpu","replication":"none"}'` for
 this experimental path. Keep the decode node on its native Engram path. These
 legacy `ENGRAM_SHARED_*` keys configure the research reader and native ABI;
 their final configuration surface is part of the design discussion. To check
-both checkpoint layers with one reader GPU, set `ENGRAM_SHARED_MAX_QUERIES=8192`
+both checkpoint layers with one reader GPU, set `ENGRAM_SHARED_MAX_QUERIES=49152`
 and `ENGRAM_SHARED_READ_GRAPH_SIZES=49152`, then run:
 
 ```bash

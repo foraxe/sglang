@@ -1,8 +1,11 @@
 import json
+import os
+import shutil
 import struct
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from sglang.srt.engram_share.rdma.owner import (
     MAX_COPY_CHUNK,
@@ -66,6 +69,49 @@ class Row264OwnerCpuTests(CustomTestCase):
                 weight + scale,
             )
         return payloads
+
+    def test_serving_checkpoint_content_mismatch_rejected_before_attach(self):
+        from sglang.srt.engram_share.rdma.runtime import ReaderRuntime
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            a, b = root / "a", root / "b"
+            a.mkdir()
+            self.make_checkpoint(a)
+            index_path = a / "model.safetensors.index.json"
+            index = json.loads(index_path.read_text())
+            index["weight_map"]["other.weight"] = "other.safetensors"
+            index_path.write_text(json.dumps(index))
+            write_safetensors(
+                a / "other.safetensors",
+                {"other.weight": {"dtype": "U8", "shape": [1], "data_offsets": [0, 1]}},
+                b"a",
+            )
+            shutil.copytree(a, b)
+            # The Engram tables, config, index and all headers remain identical;
+            # only a non-Engram model weight differs.
+            shard = b / "other.safetensors"
+            with shard.open("r+b") as f:
+                f.seek(-1, os.SEEK_END)
+                byte = f.read(1)
+                f.seek(-1, os.SEEK_END)
+                f.write(bytes([byte[0] ^ 1]))
+            owner_id = inspect_checkpoint(a)["checkpoint_identity"]
+            self.assertNotEqual(owner_id, inspect_checkpoint(b)["checkpoint_identity"])
+            ready = root / "ready.json"
+            ready.write_text(json.dumps({"checkpoint_id": owner_id}))
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"ENGRAM_SHARED_MODEL": str(a), "ENGRAM_SHARED_READY": str(ready)},
+                ),
+                mock.patch(
+                    "sglang.srt.engram_share.rdma.runtime.OwnerClient"
+                ) as client,
+                self.assertRaisesRegex(ValueError, "checkpoint identity mismatch"),
+            ):
+                ReaderRuntime(str(b))
+            client.assert_not_called()
 
     def test_row264_matches_checkpoint_bytes_and_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
