@@ -96,6 +96,20 @@ establish a reliable percentage overhead, production tail latency, or a
 comparison with the earlier measurements. The native peer-retirement
 variant below was used for this experiment.
 
+The later experimental DOCA 3.5 integration at SGLang commit
+`7fde8d0ac3073a403fef0ef3be401ff7444c4f42` was also exercised on H20
+1P1D, 16K input / 64 output, C8, TP8/CP8 prefill and DP8 decode with
+DSpark. In three rounds per arm, 3.1 versus 3.5 median-of-round TTFT p50
+was 5.162 versus 5.176 seconds; TPOT p50 was 3.124 versus 3.125 ms;
+output throughput was 94.26 versus 94.04 tokens/s. Each round had eight
+warmups and 32 measured requests, no measured prefix-cache hits, and all
+96 paired output text hashes matched. The same 32 inputs were reused each
+round; order was fixed (3.5 then 3.1) with one prefill-process launch per
+arm. P node, SGLang commit, command and D process matched; owner GPU and
+process, shim, NIXL and DOCA versions differed. D's Native Engram decode
+graph executed; P prefill graph was disabled. This compares the two tested
+runtime stacks, not isolated SDKs or production tail performance.
+
 ### Starting the research owner and reader
 
 The Python owner and reader are included in this PR. The native library is
@@ -167,8 +181,9 @@ They require the matching NIXL device-GET implementation under review in
 see the build script's required environment variables. Use the matching NIXL
 core and plugin on both nodes. The separate graph QP has its own arena and
 completion state; the feature allocates an additional arena per reader. It is
-opt-in and currently has component coverage only. Multiple graph buckets,
-concurrent graph replays, failures, and a complete DOCA 3.5 P/D service have
+opt-in. Two graph buckets with changing IDs and overlapping 16-lane prefetch
+passed a synthetic component test. Concurrent graph replays on different
+streams, failures, and Shared-Engram decode graph in a real P/D service have
 not been qualified. Prefill-side graph capture is a separate limitation.
 The DOCA 3.5 adapter does not implement the legacy research peer-retirement
 hook; do not enable `ENGRAM_SHARED_RETIRE_PEERS` with it. Normal reader close
