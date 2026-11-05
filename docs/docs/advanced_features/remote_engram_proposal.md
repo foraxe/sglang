@@ -110,6 +110,26 @@ process, shim, NIXL and DOCA versions differed. D's Native Engram decode
 graph executed; P prefill graph was disabled. This compares the two tested
 runtime stacks, not isolated SDKs or production tail performance.
 
+### Sharing the owner table with local decode
+
+The experimental single-backing mode stores one row264 table in pinned CPU
+memory on the owner node. Decode ranks map that same backing and gather rows
+locally on their GPUs; prefill readers on other nodes fetch rows through
+GPUNETIO. The decode ranks do not fetch their own table over RDMA or allocate a
+second native table. Each local mapping registers the same host pages with CUDA;
+it is not a separate table allocation.
+
+Start the owner with `ENGRAM_SHARED_LOCAL_ACCESS=1` in its environment. Start
+the decode engine with `SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM=1`,
+`ENGRAM_SHARED_READY` pointing to the owner's local ready file, and
+`--engram-config '{"placement":"cpu","replication":"none"}'`. The owner
+and decode processes must share a PID namespace and be able to access the
+owner's `/proc/<pid>/fd` entry. The owner must outlive its readers. Configure
+the prefill reader as described below, using the same owner's ready metadata.
+Local and remote Engram modes are mutually exclusive within an engine. This is
+an opt-in research path; GPU execution, lifecycle, failure recovery and
+performance must be validated for the deployment before use.
+
 ### Starting the research owner and reader
 
 The Python owner and reader are included in this PR. The native library is
