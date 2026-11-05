@@ -207,15 +207,16 @@ class RemoteEngramValidationTest(CustomTestCase):
         self.assertTrue(torch.equal(before, model[1].weight))
 
     def test_prefetch_lookup_rejects_capture_before_submitting_read(self):
-        table = self.module.RemoteEngramTable(4, 256, 1, "/model")
-        table.runtime = mock.Mock(prefetch_enabled=True)
-        indices = torch.tensor([0], dtype=torch.int64)
+        from sglang.srt.engram_share.rdma.runtime import ReaderRuntime
+
+        runtime = object.__new__(ReaderRuntime)
+        runtime.closed = False
+        runtime.max_queries = 4
+        runtime.graph_context = None
+        runtime.forward_cp_expected = False
         with mock.patch("torch.cuda.is_current_stream_capturing", return_value=True):
-            with self.assertRaisesRegex(
-                RuntimeError, "unsupported during CUDA graph capture"
-            ):
-                table.lookup(indices, 0, 4, lambda ids: torch.empty((ids.numel(), 256)))
-        table.runtime.fetch.assert_not_called()
+            with self.assertRaisesRegex(RuntimeError, "isolated decode graph context"):
+                runtime.fetch(torch.tensor([0], dtype=torch.int64), 1, 0, 4)
 
     def test_plan_is_primed_only_after_both_layers_and_deferred_read_after_reduce(self):
         runtime = mock.Mock()

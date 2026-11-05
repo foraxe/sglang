@@ -165,7 +165,7 @@ class OwnerServer(AbstractContextManager):
                     raise ControlError("lease already bound")
                 if (
                     not isinstance(peers, list)
-                    or len(peers) > 16
+                    or len(peers) > 17
                     or any(
                         not isinstance(p, str)
                         or not p.startswith("shared-engram-")

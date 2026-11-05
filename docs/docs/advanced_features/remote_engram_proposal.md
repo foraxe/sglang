@@ -142,6 +142,8 @@ export ENGRAM_SHARED_READY="$OWNER_READY" ENGRAM_SHARED_READER_PORT_BASE=56100
 export ENGRAM_SHARED_PREFETCH=1 ENGRAM_SHARED_READ_PLAN=1
 export ENGRAM_SHARED_READ_LANES=16 ENGRAM_SHARED_MAX_QUERIES=393216
 export ENGRAM_SHARED_READ_GRAPH_SIZES=393216 ENGRAM_SHARED_DEFER_LAYER14=1
+# Experimental: allocate an isolated QP and destination for decode graph GET.
+export ENGRAM_SHARED_DECODE_GRAPH=1
 # Optional: one RDMA device name per visible GPU, comma separated.
 export ENGRAM_SHARED_READER_DEVICES="<gpu0-device>,<gpu1-device>,..."
 ```
@@ -155,7 +157,23 @@ and `ENGRAM_SHARED_READ_GRAPH_SIZES=49152`, then run:
 
 ```bash
 python test/manual/engram_remote_smoke.py
+python test/manual/engram_remote_graph_smoke.py
 ```
+
+For the experimental DOCA 3.5 device-GET route, the SGLang-specific native
+ABI adapter and build script are in `python/sglang/srt/engram_share/rdma/native`.
+They require the matching NIXL device-GET implementation under review in
+[NIXL #2587](https://github.com/ai-dynamo/nixl/pull/2587), CUDA and DOCA 3.5;
+see the build script's required environment variables. Use the matching NIXL
+core and plugin on both nodes. The separate graph QP has its own arena and
+completion state; the feature allocates an additional arena per reader. It is
+opt-in and currently has component coverage only. Multiple graph buckets,
+concurrent graph replays, failures, and a complete DOCA 3.5 P/D service have
+not been qualified. Prefill-side graph capture is a separate limitation.
+The DOCA 3.5 adapter does not implement the legacy research peer-retirement
+hook; do not enable `ENGRAM_SHARED_RETIRE_PEERS` with it. Normal reader close
+and owner shutdown have component coverage, but repeated peer reclamation and
+crash recovery need separate NIXL backend support and validation.
 
 After readers have stopped and drained, create the owner stop file and wait for
 it to exit. Failed readers can leave orphan leases; this prototype intentionally

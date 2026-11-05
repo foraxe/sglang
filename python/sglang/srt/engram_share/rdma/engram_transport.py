@@ -38,6 +38,21 @@ class Context:
         ]
         lib.engram_destroy.argtypes = [C.c_void_p]
         lib.engram_record_consumed.argtypes = [C.c_void_p, C.c_uint64]
+        lib.engram_fetch_row264.argtypes = [
+            C.c_void_p,
+            C.c_uint64,
+            C.c_uint32,
+            C.c_size_t,
+            C.c_size_t,
+            C.c_size_t,
+            C.c_uint32,
+            C.c_uint32,
+            C.c_uint32,
+            C.c_uint64,
+            C.c_uint64,
+            C.c_uint64,
+            C.c_uint64,
+        ]
         self.name = "shared-engram-" + uuid.uuid4().hex
         self.handle = lib.engram_create(gpu, port, self.name.encode())
         if not self.handle:
@@ -97,6 +112,44 @@ class Context:
             self.check(self.library.engram_destroy(self.handle))
             self.handle = None
             self.buffers.clear()
+
+    def fetch_row264(self, ids, payload, dump, table, stats, lo, hi):
+        if (
+            ids.dtype != torch.int64
+            or not ids.is_cuda
+            or not ids.is_contiguous()
+            or not 0 < ids.numel()
+            or stats.dtype != torch.uint64
+            or stats.numel() != 8
+            or not stats.is_cuda
+            or not stats.is_contiguous()
+            or ids.device.index != self.gpu
+            or stats.device.index != self.gpu
+            or not 0 <= table < self.remote_count
+            or not 0 <= lo <= hi
+        ):
+            raise ValueError("invalid graph READ inputs")
+        stream = torch.cuda.current_stream(self.gpu)
+        self.check(
+            self.library.engram_fetch_row264(
+                self.handle,
+                ids.data_ptr(),
+                ids.numel(),
+                payload,
+                0,
+                dump,
+                table,
+                table,
+                512,
+                stats.data_ptr(),
+                stream.cuda_stream,
+                lo,
+                hi,
+            )
+        )
+        ids.record_stream(stream)
+        stats.record_stream(stream)
+        self.last_buffers = (ids, stats)
 
     def retire_idle_peer(self, name):
         if not self.handle or not isinstance(name, str) or not name:

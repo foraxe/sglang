@@ -56,6 +56,7 @@ class ReaderRuntime:
         )
         self.lease = self.client.attach()
         self.context = None
+        self.graph_context = None
         self.peer_retirement = False
         self._peers_bound = False
         self.closed = False
@@ -69,6 +70,8 @@ class ReaderRuntime:
                 signal.signal(signal.SIGUSR2, self._controlled_drain)
         except BaseException:
             try:
+                if self.graph_context is not None:
+                    self.graph_context.close()
                 if self.context is not None:
                     self.context.close()
                 if self.peer_retirement and not self._peers_bound:
@@ -180,8 +183,28 @@ class ReaderRuntime:
                 graph_sizes,
             )
         self.context.register([self.arena], host=False)
+        if os.environ.get("ENGRAM_SHARED_DECODE_GRAPH") == "1":
+            from sglang.srt.engram_share.rdma.engram_transport import Context
+
+            self.graph_arena = torch.empty_like(self.arena)
+            self.graph_stats = torch.zeros_like(self.layer_stats)
+            graph_port = int(os.environ["ENGRAM_SHARED_READER_PORT_BASE"]) + (
+                torch.cuda.device_count() * max(4, lanes) + gpu
+            )
+            if graph_port > 65535:
+                raise ValueError("remote Engram graph port exceeds 65535")
+            with _reader_device_scope(
+                os.environ.get("ENGRAM_SHARED_READER_DEVICES"), gpu
+            ):
+                self.graph_context = Context(
+                    os.environ["ENGRAM_SHARED_LIBRARY"], gpu, graph_port
+                )
+            self.graph_context.register([self.graph_arena], host=False)
         if self.peer_retirement:
-            self.lease.bind_peers([context.name for context in self.context.contexts])
+            peers = [context.name for context in self.context.contexts]
+            if self.graph_context is not None:
+                peers.append(self.graph_context.name)
+            self.lease.bind_peers(peers)
             self._peers_bound = True
         self.context.connect_raw(
             base64.b64decode(md["native_md"], validate=True),
@@ -189,6 +212,13 @@ class ReaderRuntime:
             md["lengths"],
             md["owner_gpu"],
         )
+        if self.graph_context is not None:
+            self.graph_context.connect_raw(
+                base64.b64decode(md["native_md"], validate=True),
+                md["addresses"],
+                md["lengths"],
+                md["owner_gpu"],
+            )
 
     def fetch(self, indices, layer, lo, hi):
         if self.closed:
@@ -201,9 +231,26 @@ class ReaderRuntime:
             raise ValueError(f"shared Engram scratch capacity {n}>{self.max_queries}")
         li = (1, 14).index(layer)
         if torch.cuda.is_current_stream_capturing():
-            raise RuntimeError(
-                "prefetch consumer must remain the native eager Engram break"
+            if self.graph_context is None or self.forward_cp_expected:
+                raise RuntimeError(
+                    "remote Engram capture requires an isolated decode graph context"
+                )
+            self.graph_context.fetch_row264(
+                ids,
+                li * self.span + self.p_off,
+                li * self.span + self.dump,
+                li,
+                self.graph_stats[li],
+                lo,
+                hi,
             )
+            torch._assert_async(
+                self.graph_stats[li].view(torch.int64)[0] == 0,
+                "captured shared Engram GET failed",
+            )
+            offset = li * self.span + self.p_off
+            raw = self.graph_arena[offset : offset + n * 264].view(n, 264)
+            return ids, raw[:, :256].view(torch.float8_e4m3fn), raw[:, 256:]
         if self.prefetch_ids is None:
             if self.forward_cp_expected:
                 raise RuntimeError(
@@ -328,6 +375,11 @@ class ReaderRuntime:
         self.forward_cp_expected = bool(cp_extend)
 
     def record_consumed(self, layer):
+        if torch.cuda.is_current_stream_capturing():
+            if self.graph_context is None:
+                raise RuntimeError("remote Engram decode graph is not enabled")
+            self.graph_context.record_consumed()
+            return
         self.consumed_events[layer].record(torch.cuda.current_stream())
         with torch.cuda.stream(self.comm_stream):
             self.comm_stream.wait_event(self.consumed_events[layer])
@@ -336,6 +388,8 @@ class ReaderRuntime:
     def close(self):
         if not self.closed:
             # Native close retires CUDA/NIC consumers before the owner lease.
+            if self.graph_context is not None:
+                self.graph_context.close()
             self.context.close()
             self.lease.release()
             self.closed = True

@@ -12,6 +12,19 @@ register_cpu_ci(est_time=5, suite="base-a-test-cpu")
 
 
 class PeerRetireTests(CustomTestCase):
+    def test_sixteen_prefetch_peers_and_one_graph_peer(self):
+        retired = []
+        with OwnerServer(
+            {"checkpoint_id": "test"}, retire_peer=retired.append
+        ).start() as server:
+            client = OwnerClient(*server.address, "test", server.generation)
+            lease = client.attach()
+            peers = ["shared-engram-" + f"{i:032x}" for i in range(17)]
+            lease.bind_peers(peers)
+            lease.release()
+            self.assertEqual(retired, peers)
+            self.assertEqual(client.status()["leases"], 0)
+
     def test_bound_release_and_independent_readers(self):
         retired = []
         with OwnerServer(

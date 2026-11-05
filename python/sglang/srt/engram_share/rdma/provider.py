@@ -88,17 +88,16 @@ class RemoteEngramTable:
         out = new_rows(indices)
         if not indices.numel():
             return out
-        if torch.cuda.is_current_stream_capturing():
-            raise RuntimeError(
-                "remote Engram QP prefetch is unsupported during CUDA graph capture"
-            )
+        capturing = torch.cuda.is_current_stream_capturing()
         ids, weight, _ = self.runtime.fetch(
             indices, self.layer_id, row_start, row_start + rows
         )
         from sglang.srt.engram_share.rdma.row264_kernels import gather_row264
 
-        representatives = self.runtime.context.representatives(
-            (1, 14).index(self.layer_id)
+        representatives = (
+            None
+            if capturing
+            else self.runtime.context.representatives((1, 14).index(self.layer_id))
         )
         gather_row264(
             weight.data_ptr(),
