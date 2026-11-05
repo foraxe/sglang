@@ -88,6 +88,69 @@ class RemoteEngramValidationTest(CustomTestCase):
         ):
             EngramEmbedding(4, 256, 1, (0, 4))
 
+    def test_local_owner_in_other_pid_namespace_is_rejected_and_released(self):
+        from sglang.srt.engram_share.rdma.local import LocalRuntime
+
+        lease = mock.Mock()
+        lease.metadata = {
+            "storage_layout": "row264",
+            "peer_retirement": True,
+            "local_backing": {"pid_namespace": os.stat("/proc/self/ns/pid").st_ino + 1},
+        }
+        with TemporaryDirectory() as tmp:
+            ready = Path(tmp) / "ready.json"
+            ready.write_text(
+                '{"host":"localhost","port":1,"checkpoint_id":"x","generation":"g"}'
+            )
+            with (
+                mock.patch.dict(os.environ, {"ENGRAM_SHARED_READY": str(ready)}),
+                mock.patch(
+                    "sglang.srt.engram_share.rdma.owner.inspect_checkpoint",
+                    return_value={"checkpoint_identity": "x"},
+                ),
+                mock.patch("sglang.srt.engram_share.rdma.local.OwnerClient") as client,
+            ):
+                client.return_value.attach.return_value = lease
+                with self.assertRaisesRegex(ValueError, "PID namespace"):
+                    LocalRuntime("/model")
+        lease.bind_peers.assert_called_once_with([])
+        lease.release.assert_called_once()
+
+    def test_local_shared_embedding_uses_one_table_without_native_allocation(self):
+        from sglang.srt.arg_groups.engram_config import (
+            EngramPlacement,
+            EngramReplication,
+        )
+        from sglang.srt.layers.engram import EngramEmbedding
+
+        config = SimpleNamespace(
+            placement=EngramPlacement.CPU,
+            replication=EngramReplication.NONE,
+            lookup=None,
+        )
+        parallel = SimpleNamespace(tp_size=1, tp_rank=0, attn_cp_size=1)
+        with (
+            mock.patch.dict(
+                os.environ, {"SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM": "1"}
+            ),
+            mock.patch("sglang.srt.layers.engram.get_parallel", return_value=parallel),
+            mock.patch(
+                "sglang.srt.layers.engram.resolve_engram_config", return_value=config
+            ),
+            mock.patch(
+                "sglang.srt.layers.engram.get_model",
+                return_value=SimpleNamespace(model_path="/model"),
+            ),
+            mock.patch("sglang.srt.engram_share.rdma.local.LocalTable") as local,
+        ):
+            embedding = EngramEmbedding(4, 256, 1, (0, 4))
+            indices = torch.tensor([0], dtype=torch.int64)
+            self.assertIs(embedding(indices), local.return_value.lookup.return_value)
+        self.assertIsNone(embedding.host_table)
+        self.assertEqual(embedding.weight.numel(), 0)
+        self.assertEqual(embedding.scale.numel(), 0)
+        local.return_value.lookup.assert_called_once()
+
     def test_safetensors_loader_does_not_materialize_remote_table(self):
         from safetensors.torch import save_file
 

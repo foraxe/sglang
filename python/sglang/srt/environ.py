@@ -1983,6 +1983,7 @@ class Envs:
     SGLANG_OPT_ENGRAM_EXTEND_HASH = EnvBool(False)
     # Experimental external shared-table reader; native Engram remains default.
     SGLANG_EXPERIMENTAL_REMOTE_ENGRAM = EnvBool(False)
+    SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM = EnvBool(False)
     SGLANG_OPT_DSV41_MEGA_MHC_PREFILL = EnvBool(False)
     # Deprecated for --engram-config "replication".
     SGLANG_DSV41_ENGRAM_HOST_TABLE_LAYOUT = EnvStr("per_rank")

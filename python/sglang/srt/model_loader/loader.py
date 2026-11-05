@@ -621,7 +621,10 @@ class DefaultModelLoader(BaseModelLoader):
         """Get an iterator for the model weights based on the load format."""
         extra_config = self.load_config.model_loader_extra_config
         use_multithread = extra_config.get("enable_multithread_load", True)
-        remote_engram = envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get()
+        remote_engram = (
+            envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get()
+            or envs.SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM.get()
+        )
         if remote_engram and self.load_config.load_format not in (
             LoadFormat.AUTO,
             LoadFormat.SAFETENSORS,
@@ -4188,7 +4191,10 @@ def get_model_loader(
 ) -> BaseModelLoader:
     """Get a model loader based on the load format."""
 
-    if envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get():
+    if (
+        envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get()
+        or envs.SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM.get()
+    ):
         if load_config.load_format not in (LoadFormat.AUTO, LoadFormat.SAFETENSORS):
             raise ValueError("remote Engram requires the mmap safetensors loader")
         if model_config is not None and getattr(

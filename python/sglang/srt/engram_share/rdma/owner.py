@@ -402,6 +402,9 @@ class RealCheckpointOwner:
         self.context = None
         self.control = None
         self.manifest = None
+        self.local_fd = None
+        self.local_map = None
+        self.local_registered = False
 
     def start(self):
         # Set before importing Torch: its default rounds this 188.83GiB request
@@ -445,7 +448,21 @@ class RealCheckpointOwner:
             pinned_bytes / 2**30,
             self.args.max_pinned_gib,
         )
-        self.backing = torch.empty(pinned_bytes, dtype=torch.uint8, pin_memory=True)
+        if os.environ.get("ENGRAM_SHARED_LOCAL_ACCESS") == "1":
+            self.local_fd = os.memfd_create("sglang-engram-row264", os.MFD_CLOEXEC)
+            os.ftruncate(self.local_fd, pinned_bytes)
+            self.local_map = mmap.mmap(
+                self.local_fd, pinned_bytes, flags=mmap.MAP_SHARED
+            )
+            self.backing = torch.frombuffer(self.local_map, dtype=torch.uint8)
+            err = torch.cuda.cudart().cudaHostRegister(
+                self.backing.data_ptr(), pinned_bytes, 0
+            )
+            if int(err) != 0:
+                raise RuntimeError(f"shared Engram cudaHostRegister failed: {err}")
+            self.local_registered = True
+        else:
+            self.backing = torch.empty(pinned_bytes, dtype=torch.uint8, pin_memory=True)
         pointer = self.backing.data_ptr()
         actual_mapping = None
         for region in re.split(
@@ -499,6 +516,18 @@ class RealCheckpointOwner:
             self.context.metadata(),
             storage_layout=storage_layout,
         )
+        if self.local_fd is not None:
+            metadata["local_backing"] = {
+                "pid": os.getpid(),
+                "fd": self.local_fd,
+                "start_ticks": Path("/proc/self/stat")
+                .read_text()
+                .rsplit(")", 1)[1]
+                .split()[19],
+                "inode": os.fstat(self.local_fd).st_ino,
+                "bytes": pinned_bytes,
+                "pid_namespace": os.stat("/proc/self/ns/pid").st_ino,
+            }
         retire_peers = os.environ.get("ENGRAM_SHARED_RETIRE_PEERS") == "1"
         if retire_peers and not hasattr(
             self.context.library, "engram_retire_idle_peer"
@@ -529,7 +558,7 @@ class RealCheckpointOwner:
             "storage_layout": storage_layout,
             "generation": self.control.generation,
             "checkpoint_identity": checkpoint_id,
-            "identity_scope": "config/index/selected safetensors headers and tensor descriptors; not full weight-file hashes",
+            "identity_scope": "config/index and full indexed shard hashes",
             "pinned_backing_bytes": pinned_bytes,
             "pinned_backing_gib": pinned_bytes / 2**30,
             "actual_pinned_allocation": actual_mapping,
@@ -605,7 +634,20 @@ class RealCheckpointOwner:
         if self.numpy_view is not None:
             self.numpy_view.release()
             self.numpy_view = None
+        if self.local_registered:
+            import torch
+
+            err = torch.cuda.cudart().cudaHostUnregister(self.backing.data_ptr())
+            if int(err) != 0:
+                raise RuntimeError(f"shared Engram cudaHostUnregister failed: {err}")
+            self.local_registered = False
         self.backing = None
+        if self.local_map is not None:
+            self.local_map.close()
+            self.local_map = None
+        if self.local_fd is not None:
+            os.close(self.local_fd)
+            self.local_fd = None
         self.ready.update(
             state="closed",
             counters=self.control.counter_snapshot(),

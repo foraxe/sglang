@@ -1066,7 +1066,29 @@ class EngramEmbedding(nn.Module):
         self.lookup = config.lookup
         self._cols_per_rank = cols_per_rank(len(column_bounds) - 1, self.tp_size)
         self.remote_table = None
-        if envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get():
+        self.local_shared_table = None
+        if (
+            envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get()
+            and envs.SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM.get()
+        ):
+            raise ValueError("remote and local shared Engram modes are mutually exclusive")
+        if envs.SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM.get():
+            if (
+                config.placement != EngramPlacement.CPU
+                or config.replication != EngramReplication.NONE
+            ):
+                raise ValueError("local shared Engram requires CPU placement without replication")
+            from sglang.srt.engram_share.rdma.local import LocalTable
+
+            self.local_shared_table = LocalTable(num_embeddings, dim, layer_id, get_model().model_path)
+            self.weight = nn.Parameter(
+                torch.empty((0, dim), dtype=torch.float8_e4m3fn), requires_grad=False
+            )
+            self.scale = nn.Parameter(
+                torch.empty((0, dim // FP8_BLOCK_SIZE), dtype=torch.float8_e8m0fnu),
+                requires_grad=False,
+            )
+        elif envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get():
             if (
                 config.placement != EngramPlacement.CPU
                 or config.replication != EngramReplication.NONE
@@ -1155,6 +1177,9 @@ class EngramEmbedding(nn.Module):
         return self._host_table_ptrs
 
     def _load_rows(self, param: nn.Parameter, loaded_weight: torch.Tensor):
+        if self.local_shared_table is not None:
+            self.local_shared_table.check_weight(param, loaded_weight, self.weight)
+            return
         if self.remote_table is not None:
             self.remote_table.check_weight(param, loaded_weight, self.weight)
             return
@@ -1169,6 +1194,8 @@ class EngramEmbedding(nn.Module):
     def finish_load(self, label: str):
         """Collective in the shared layout and with peer shards: every rank calls
         it after loading."""
+        if self.local_shared_table is not None:
+            self.local_shared_table.finish_load(self.row_start, self.rows)
         if self.remote_table is not None:
             self.remote_table.finish_load(self.row_start, self.rows)
         if self.peer is not None:
@@ -1183,6 +1210,8 @@ class EngramEmbedding(nn.Module):
         *,
         cp_all_tokens: bool = False,
     ) -> torch.Tensor:
+        if self.local_shared_table is not None:
+            return self.local_shared_table.lookup(indices, self.new_rows)
         if self.peer is not None:
             assert self.peer.ready, "engram peer shards are mapped in finish_load"
             # Every shard is mapped here: read this rank's own tokens only, which
