@@ -1,0 +1,32 @@
+docs/docs/advanced_features/remote_engram_proposal.md
+  h_02e4646417b93d 145-146,160,163-177
+python/sglang/srt/engram_share/rdma/engram_transport.py
+  h_02e4646417b93d 41-55,116-153
+python/sglang/srt/engram_share/rdma/native/build_engram_native_nixl35.sh
+  h_02e4646417b93d 1-21
+python/sglang/srt/engram_share/rdma/native/engram_native_nixl35.cu
+  h_02e4646417b93d 1-754
+python/sglang/srt/engram_share/rdma/owner_control.py
+  h_02e4646417b93d 168
+python/sglang/srt/engram_share/rdma/provider.py
+  h_02e4646417b93d 91,97-100
+python/sglang/srt/engram_share/rdma/runtime.py
+  h_02e4646417b93d 59,73-74,186-202,204-207,215-221,234-249,251-253,378-382,391-392
+test/manual/engram_remote_graph_smoke.py
+  h_02e4646417b93d 1-122
+test/registered/unit/layers/test_remote_engram.py
+  h_02e4646417b93d 210-216,218-219
+test/registered/unit/layers/test_remote_engram_retirement.py
+  h_02e4646417b93d 15-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7fde8d0ac3073a403fef0ef3be401ff7444c4f42",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
