@@ -1,0 +1,30 @@
+python/sglang/srt/engram_share/rdma/local.py
+  h_02e4646417b93d 1-170
+python/sglang/srt/engram_share/rdma/owner.py
+  h_02e4646417b93d 405-407,451-465,519-530,561,637-643,645-650
+python/sglang/srt/environ.py
+  h_02e4646417b93d 1986
+python/sglang/srt/layers/engram.py
+  h_02e4646417b93d 1069-1091,1180-1182,1197-1198,1213-1214
+python/sglang/srt/model_loader/loader.py
+  h_02e4646417b93d 624-627,4194-4197
+python/sglang/srt/models/deepseek_v4.py
+  h_02e4646417b93d 4674-4677,4683-4684
+test/manual/engram_local_shared_smoke.py
+  h_02e4646417b93d 1-104
+test/manual/engram_shared_backing_probe.py
+  h_02e4646417b93d 1-114
+test/registered/unit/layers/test_remote_engram.py
+  h_02e4646417b93d 91-153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4ffe0fe15af186ee3bf9818a357cbefc805d7cfe",
+  "prompts": {},
+  "humans": {
+    "h_02e4646417b93d": {
+      "author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
