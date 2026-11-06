@@ -1,0 +1,19 @@
+docs/docs/advanced_features/remote_engram_proposal.md
+  s_b02aaaf0b0d64c::t_6f14d82bcbaeb6 217-220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "faea1bca8103dac07e81a63efa04fcf0dc1ed921",
+  "prompts": {},
+  "sessions": {
+    "s_b02aaaf0b0d64c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a187d1-dc48-7243-b1c5-e64b7d932a1a",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
