@@ -1,3 +1,4 @@
+import asyncio
 import importlib.util
 import os
 import unittest
@@ -8,7 +9,6 @@ from types import SimpleNamespace
 from unittest import mock
 
 import torch
-
 from sglang.test.ci.ci_register import register_cpu_ci
 from sglang.test.test_utils import CustomTestCase
 
@@ -26,6 +26,34 @@ def load_adapter():
 class RemoteEngramValidationTest(CustomTestCase):
     def setUp(self):
         self.module = load_adapter()
+
+    def test_shared_engram_rejects_new_requests_during_shutdown(self):
+        from sglang.srt.managers.tokenizer_manager import TokenizerManager
+
+        manager = SimpleNamespace(
+            gracefully_exit=True, auto_create_handle_loop=mock.Mock()
+        )
+
+        async def submit():
+            return await anext(TokenizerManager.generate_request(manager, object()))
+
+        for flag in (
+            "SGLANG_EXPERIMENTAL_REMOTE_ENGRAM",
+            "SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM",
+        ):
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        "SGLANG_EXPERIMENTAL_REMOTE_ENGRAM": "0",
+                        "SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM": "0",
+                        flag: "1",
+                    },
+                ),
+                self.assertRaisesRegex(ValueError, "draining"),
+            ):
+                asyncio.run(submit())
+        manager.auto_create_handle_loop.assert_not_called()
 
     def test_graceful_scheduler_releases_shared_reader_first(self):
         from sglang.srt.engram_share.rdma import local, provider
@@ -207,7 +235,6 @@ class RemoteEngramValidationTest(CustomTestCase):
 
     def test_safetensors_loader_does_not_materialize_remote_table(self):
         from safetensors.torch import save_file
-
         from sglang.srt.model_loader.weight_utils import (
             buffered_multi_thread_safetensors_weights_iterator,
             safetensors_weights_iterator,

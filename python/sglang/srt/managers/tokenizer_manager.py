@@ -941,6 +941,11 @@ class TokenizerManager(TokenizerControlMixin, TokenizerManagerScoreMixin):
         obj: Union[GenerateReqInput, EmbeddingReqInput],
         request: Optional[fastapi.Request] = None,
     ):
+        if self.gracefully_exit and (
+            envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get()
+            or envs.SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM.get()
+        ):
+            raise ValueError("Shared Engram service is draining")
         self.auto_create_handle_loop()
 
         # Normalize the request
