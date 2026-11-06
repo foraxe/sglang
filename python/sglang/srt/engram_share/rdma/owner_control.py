@@ -16,6 +16,8 @@ from contextlib import AbstractContextManager
 from types import MappingProxyType
 
 MAX_FRAME = 64 * 1024
+# Retain request IDs and released tokens for the lifetime of one generation.
+MAX_GENERATION_ATTACHES = 4096
 
 
 class ControlError(RuntimeError):
@@ -79,7 +81,12 @@ class OwnerServer(AbstractContextManager):
         self.metadata = _freeze(json.loads(encoded))
         self.generation = secrets.token_urlsafe(24)
         self._lock = threading.RLock()
+        self._condition = threading.Condition(self._lock)
         self._leases = {}
+        self._attach_requests = {}
+        self._released_leases = set()
+        self._used_peers = set()
+        self._retiring = set()
         self._retire_peer = retire_peer
         self._draining = False
         self._closed = False
@@ -133,6 +140,8 @@ class OwnerServer(AbstractContextManager):
 
     def _dispatch(self, request):
         op = request.get("op")
+        if op == "release":
+            return self._release(request)
         with self._lock:
             if self._closed:
                 raise ControlError("owner is closed")
@@ -146,10 +155,26 @@ class OwnerServer(AbstractContextManager):
             if op == "attach":
                 if request.get("checkpoint_id") != self.metadata["checkpoint_id"]:
                     raise ControlError("checkpoint identity mismatch")
+                request_id = request.get("request_id")
+                if not isinstance(request_id, str) or not 16 <= len(request_id) <= 128:
+                    raise ControlError("invalid attach request ID")
+                lease = self._attach_requests.get(request_id)
+                if lease is not None:
+                    if lease in self._released_leases:
+                        raise ControlError("attach request already released")
+                    return {
+                        "metadata": json.loads(self._metadata_json),
+                        "generation": self.generation,
+                        "lease": lease,
+                        "replayed": True,
+                    }
                 if self._draining:
                     raise ControlError("owner is draining")
+                if len(self._attach_requests) >= MAX_GENERATION_ATTACHES:
+                    raise ControlError("owner generation attach limit reached")
                 lease = secrets.token_urlsafe(24)
                 self._leases[lease] = None
+                self._attach_requests[request_id] = lease
                 return {
                     "metadata": json.loads(self._metadata_json),
                     "generation": self.generation,
@@ -161,8 +186,6 @@ class OwnerServer(AbstractContextManager):
                     raise ControlError("unknown lease")
                 if self._retire_peer is None:
                     raise ControlError("owner does not support peer retirement")
-                if self._leases[lease] is not None:
-                    raise ControlError("lease already bound")
                 if (
                     not isinstance(peers, list)
                     or len(peers) > 17
@@ -175,39 +198,59 @@ class OwnerServer(AbstractContextManager):
                     or len(set(peers)) != len(peers)
                 ):
                     raise ControlError("invalid peer identities")
-                reserved = {
-                    p
-                    for existing in self._leases.values()
-                    if existing
-                    for p in existing
-                }
-                if reserved.intersection(peers):
+                previous = self._leases[lease]
+                if previous is not None:
+                    if previous == tuple(peers) and lease not in self._retiring:
+                        return {"bound": len(peers)}
+                    raise ControlError("lease already bound")
+                if self._used_peers.intersection(peers):
                     raise ControlError("peer already bound")
                 self._leases[lease] = tuple(peers)
+                self._used_peers.update(peers)
                 return {"bound": len(peers)}
-            if op == "release":
-                lease = request.get("lease")
-                if not isinstance(lease, str) or lease not in self._leases:
-                    raise ControlError("unknown or already released lease")
-                peers = self._leases[lease]
-                if self._retire_peer is not None and peers is None:
-                    raise ControlError(
-                        "lease must bind peers before release; lease retained"
-                    )
-                if peers:
-                    try:
-                        for peer in peers:
-                            self._retire_peer(peer)
-                    except Exception as exc:
-                        raise ControlError(
-                            f"peer retirement failed; lease retained: {exc}"
-                        ) from exc
-                del self._leases[lease]
-                return {"released": True}
             if op == "drain":
                 self._draining = True
                 return {"draining": True, "leases": len(self._leases)}
             raise ValueError("unknown operation")
+
+    def _release(self, request):
+        lease = request.get("lease")
+        with self._condition:
+            if self._closed:
+                raise ControlError("owner is closed")
+            self._check_generation(request)
+            if not isinstance(lease, str):
+                raise ControlError("unknown or already released lease")
+            while lease in self._retiring:
+                self._condition.wait()
+            if lease in self._released_leases:
+                return {"released": True, "replayed": True}
+            if lease not in self._leases:
+                raise ControlError("unknown or already released lease")
+            peers = self._leases[lease]
+            if self._retire_peer is not None and peers is None:
+                raise ControlError(
+                    "lease must bind peers before release; lease retained"
+                )
+            self._retiring.add(lease)
+        error = None
+        try:
+            for peer in peers or ():
+                self._retire_peer(peer)
+        except BaseException as exc:
+            error = exc
+        finally:
+            with self._condition:
+                self._retiring.remove(lease)
+                if error is None:
+                    del self._leases[lease]
+                    self._released_leases.add(lease)
+                self._condition.notify_all()
+        if error is not None:
+            raise ControlError(
+                f"peer retirement failed; lease retained: {error}"
+            ) from error
+        return {"released": True}
 
     def close(self):
         with self._lock:
@@ -237,13 +280,23 @@ class OwnerClient:
         self.host, self.port = host, port
         self.checkpoint_id, self.generation = checkpoint_id, generation
         self.timeout = timeout
+        self._pending_attach_id = None
+        self._attach_lock = threading.Lock()
 
     def _request(self, op, **fields):
         request = {"op": op, "generation": self.generation, **fields}
-        with socket.create_connection((self.host, self.port), self.timeout) as sock:
-            sock.settimeout(self.timeout)
-            _send(sock, request)
-            response = json.loads(_read_frame(sock).decode("utf-8"))
+        for attempt in range(2):
+            try:
+                with socket.create_connection(
+                    (self.host, self.port), self.timeout
+                ) as sock:
+                    sock.settimeout(self.timeout)
+                    _send(sock, request)
+                    response = json.loads(_read_frame(sock).decode("utf-8"))
+                break
+            except (OSError, ValueError, UnicodeDecodeError):
+                if attempt:
+                    raise
         if not isinstance(response, dict) or not response.get("ok"):
             raise ControlError(
                 response.get("error", "invalid server response")
@@ -253,13 +306,22 @@ class OwnerClient:
         return response
 
     def attach(self):
-        response = self._request("attach", checkpoint_id=self.checkpoint_id)
-        if (
-            response.get("generation") != self.generation
-            or response.get("metadata", {}).get("checkpoint_id") != self.checkpoint_id
-        ):
-            raise ControlError("server identity validation failed")
-        return Lease(self, response["lease"], response["metadata"])
+        with self._attach_lock:
+            if self._pending_attach_id is None:
+                self._pending_attach_id = secrets.token_urlsafe(24)
+            response = self._request(
+                "attach",
+                checkpoint_id=self.checkpoint_id,
+                request_id=self._pending_attach_id,
+            )
+            if (
+                response.get("generation") != self.generation
+                or response.get("metadata", {}).get("checkpoint_id")
+                != self.checkpoint_id
+            ):
+                raise ControlError("server identity validation failed")
+            self._pending_attach_id = None
+            return Lease(self, response["lease"], response["metadata"])
 
     def begin_drain(self):
         return self._request("drain")

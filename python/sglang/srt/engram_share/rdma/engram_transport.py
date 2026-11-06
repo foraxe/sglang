@@ -151,6 +151,15 @@ class Context:
         stats.record_stream(stream)
         self.last_buffers = (ids, stats)
 
+    def peer_retirement_supported(self):
+        if not hasattr(self.library, "engram_retire_idle_peer"):
+            return False
+        probe = getattr(self.library, "engram_peer_retirement_supported", None)
+        if probe is None:
+            return True  # The legacy research adapter predates the probe.
+        probe.restype = C.c_int
+        return probe() == 1
+
     def retire_idle_peer(self, name):
         if not self.handle or not isinstance(name, str) or not name:
             raise ValueError("retirement needs a live owner and peer name")

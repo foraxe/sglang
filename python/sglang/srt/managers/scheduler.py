@@ -2034,6 +2034,17 @@ class Scheduler(
         return result_dict
 
     def release_host_resources(self) -> None:
+        # The graceful ShutdownReq has stopped this rank's scheduler loop.
+        # Close shared readers before exiting; their close drains GPU consumers
+        # before releasing the owner lease.  The exception path must not call it.
+        if envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get():
+            from sglang.srt.engram_share.rdma.provider import close_runtime
+
+            close_runtime()
+        if envs.SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM.get():
+            from sglang.srt.engram_share.rdma.local import close_runtime
+
+            close_runtime()
         self.request_receiver.close()
         if self.uocr_runtime is not None:
             self.uocr_runtime.close()

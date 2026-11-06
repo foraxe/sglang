@@ -1,6 +1,5 @@
 """Experimental same-node consumption of the owner's row264 backing."""
 
-import atexit
 import json
 import mmap
 import os
@@ -13,6 +12,12 @@ from sglang.srt.engram_share.rdma.owner_control import OwnerClient
 
 _runtime = None
 _quarantined = []
+
+
+def close_runtime():
+    """Close the local reader after the scheduler has stopped launching work."""
+    if _runtime is not None:
+        _runtime.close()
 
 
 class LocalRuntime:
@@ -31,11 +36,15 @@ class LocalRuntime:
         self.bytes = None
         self.registered = False
         self.closed = False
+        self.peer_retirement = False
+        self._peers_bound = False
         try:
             metadata = self.lease.metadata
             local = metadata.get("local_backing")
-            if metadata.get("peer_retirement"):
+            self.peer_retirement = bool(metadata.get("peer_retirement"))
+            if self.peer_retirement:
                 self.lease.bind_peers([])
+                self._peers_bound = True
             if metadata.get("storage_layout") != "row264" or not local:
                 raise ValueError("owner did not publish a local row264 backing")
             if int(local["pid_namespace"]) != os.stat("/proc/self/ns/pid").st_ino:
@@ -87,11 +96,12 @@ class LocalRuntime:
                 signal.signal(signal.SIGUSR2, self._controlled_drain)
         except BaseException:
             try:
+                if self.peer_retirement and not self._peers_bound:
+                    self.lease.bind_peers([])
                 self.close()
             except BaseException:
                 _quarantined.append(self)
             raise
-        atexit.register(self.close)
 
     def close(self):
         if self.closed:

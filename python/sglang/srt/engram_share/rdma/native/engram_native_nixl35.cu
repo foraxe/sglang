@@ -5,6 +5,10 @@
 #include <gpu/nixl_device.cuh>
 #include <gpu/nixl_device_batch.cuh>
 #include <nixl.h>
+#ifdef ENGRAM_RESEARCH_PEER_RETIREMENT
+#include "agent_data.h"
+#include <dlfcn.h>
+#endif
 
 
 #include <algorithm>
@@ -716,6 +720,39 @@ extern "C" int engram_read_group_destroy(void *handle) {
         delete group;
     });
 }
+#ifdef ENGRAM_RESEARCH_PEER_RETIREMENT
+extern "C" int engram_peer_retirement_supported() {
+    const char *dir = std::getenv("NIXL_PLUGIN_DIR");
+    if (!dir) return 0;
+    const auto path = std::string(dir) + "/libplugin_GPUNETIO.so";
+    void *plugin = dlopen(path.c_str(), RTLD_NOW | RTLD_NOLOAD);
+    if (!plugin) return 0;
+    const bool supported = dlsym(plugin, "research_gpunetio_retire_idle_peer") != nullptr;
+    dlclose(plugin);
+    return supported ? 1 : 0;
+}
+
+// Experimental owner-only API; the caller must have drained the reader.
+extern "C" int engram_retire_idle_peer(void *handle, const char *peer) {
+    return guarded([&] {
+        if (!handle) throw std::runtime_error("missing owner handle");
+        auto &c = *static_cast<Context *>(handle);
+        check(cudaSetDevice(c.gpu), "select owner device");
+        const char *dir = std::getenv("NIXL_PLUGIN_DIR");
+        if (!dir || !peer || !*peer) throw std::runtime_error("missing plugin directory or peer");
+        const auto path = std::string(dir) + "/libplugin_GPUNETIO.so";
+        void *plugin = dlopen(path.c_str(), RTLD_NOW | RTLD_NOLOAD);
+        if (!plugin) throw std::runtime_error("GPUNETIO plugin not loaded at configured path");
+        using Retire = nixl_status_t (*)(nixlBackendEngine *, const char *);
+        auto fn = reinterpret_cast<Retire>(dlsym(plugin, "research_gpunetio_retire_idle_peer"));
+        if (!fn) { dlclose(plugin); throw std::runtime_error("plugin lacks peer retirement"); }
+        auto status = fn(c.backend->researchEngine(), peer);
+        dlclose(plugin);
+        require(status, "retire owner peer");
+    });
+}
+#endif
+
 extern "C" int engram_destroy(void *handle) {
     if (!handle) return 0;
     return guarded([&] {

@@ -1,6 +1,5 @@
 """Experimental remote Engram reader for the opt-in SGLang integration."""
 
-import atexit
 import base64
 import hashlib
 import json
@@ -59,6 +58,7 @@ class ReaderRuntime:
         self.graph_context = None
         self.peer_retirement = False
         self._peers_bound = False
+        self._pending_peer_names = None
         self.closed = False
         try:
             self._prepare()
@@ -75,13 +75,12 @@ class ReaderRuntime:
                 if self.context is not None:
                     self.context.close()
                 if self.peer_retirement and not self._peers_bound:
-                    self.lease.bind_peers([])
+                    self.lease.bind_peers(self._pending_peer_names or [])
                 self.lease.release()
             except BaseException:
                 # A failed device retirement must retain scratch and its lease.
                 _quarantined.append(self)
             raise
-        atexit.register(self.close)
         print(
             json.dumps(
                 {
@@ -204,6 +203,7 @@ class ReaderRuntime:
             peers = [context.name for context in self.context.contexts]
             if self.graph_context is not None:
                 peers.append(self.graph_context.name)
+            self._pending_peer_names = peers
             self.lease.bind_peers(peers)
             self._peers_bound = True
         self.context.connect_raw(

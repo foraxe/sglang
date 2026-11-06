@@ -375,7 +375,7 @@ class CountingOwnerServer(OwnerServer):
             "release": "release_ok",
             "drain": "drain_ok",
         }.get(request.get("op"))
-        if field:
+        if field and not result.get("replayed", False):
             with self._counter_lock:
                 self.counters[field] += 1
             LOG.info(
@@ -529,10 +529,8 @@ class RealCheckpointOwner:
                 "pid_namespace": os.stat("/proc/self/ns/pid").st_ino,
             }
         retire_peers = os.environ.get("ENGRAM_SHARED_RETIRE_PEERS") == "1"
-        if retire_peers and not hasattr(
-            self.context.library, "engram_retire_idle_peer"
-        ):
-            raise RuntimeError("native library lacks owner peer retirement")
+        if retire_peers and not self.context.peer_retirement_supported():
+            raise RuntimeError("native library or plugin lacks owner peer retirement")
         metadata["peer_retirement"] = retire_peers
         self.control = CountingOwnerServer(
             metadata,

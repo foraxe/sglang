@@ -12,6 +12,12 @@ import torch
 _runtime = None
 
 
+def close_runtime():
+    """Close the remote reader after the scheduler has stopped launching work."""
+    if _runtime is not None:
+        _runtime.close()
+
+
 def weight_update_error():
     return (
         "Online weight updates are unsupported with remote Engram; "

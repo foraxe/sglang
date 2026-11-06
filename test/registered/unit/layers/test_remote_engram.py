@@ -27,6 +27,60 @@ class RemoteEngramValidationTest(CustomTestCase):
     def setUp(self):
         self.module = load_adapter()
 
+    def test_graceful_scheduler_releases_shared_reader_first(self):
+        from sglang.srt.engram_share.rdma import local, provider
+        from sglang.srt.managers import scheduler
+
+        fake = SimpleNamespace(
+            request_receiver=mock.Mock(),
+            uocr_runtime=None,
+            hisparse_coordinator=None,
+            tree_cache=mock.Mock(),
+            decode_offload_manager=None,
+        )
+        order = []
+        fake.request_receiver.close.side_effect = lambda: order.append("receiver")
+        with (
+            mock.patch.dict(
+                os.environ,
+                {
+                    "SGLANG_EXPERIMENTAL_REMOTE_ENGRAM": "1",
+                    "SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM": "0",
+                },
+            ),
+            mock.patch.object(
+                provider, "close_runtime", side_effect=lambda: order.append("remote")
+            ),
+            mock.patch.object(local, "close_runtime") as local_close,
+            mock.patch.object(scheduler, "destroy_global_experts_capturer"),
+            mock.patch.object(scheduler, "destroy_global_indexer_capturer"),
+            mock.patch.object(scheduler.rank_consensus_checker, "shutdown"),
+        ):
+            scheduler.Scheduler.release_host_resources(fake)
+        self.assertEqual(order, ["remote", "receiver"])
+        local_close.assert_not_called()
+
+        order.clear()
+        with (
+            mock.patch.dict(
+                os.environ,
+                {
+                    "SGLANG_EXPERIMENTAL_REMOTE_ENGRAM": "0",
+                    "SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM": "1",
+                },
+            ),
+            mock.patch.object(provider, "close_runtime") as remote_close,
+            mock.patch.object(
+                local, "close_runtime", side_effect=lambda: order.append("local")
+            ),
+            mock.patch.object(scheduler, "destroy_global_experts_capturer"),
+            mock.patch.object(scheduler, "destroy_global_indexer_capturer"),
+            mock.patch.object(scheduler.rank_consensus_checker, "shutdown"),
+        ):
+            scheduler.Scheduler.release_host_resources(fake)
+        self.assertEqual(order, ["local", "receiver"])
+        remote_close.assert_not_called()
+
     def test_checkpoint_shapes_and_dtypes(self):
         table = self.module.RemoteEngramTable(4, 256, 1, "/model")
         weight = torch.empty((0, 256), dtype=torch.float8_e4m3fn)

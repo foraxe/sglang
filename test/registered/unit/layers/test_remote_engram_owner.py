@@ -82,8 +82,9 @@ class OwnerControlTests(CustomTestCase):
             stale.attach()
         lease = self.attach()
         lease.release()
+        self.assertTrue(self.client._request("release", lease=lease.token)["released"])
         with self.assertRaisesRegex(ControlError, "unknown or already"):
-            self.client._request("release", lease=lease.token)
+            self.client._request("release", lease="unknown-token")
 
     def test_checkpoint_mismatch_and_metadata_is_immutable(self):
         host, port = self.owner.address

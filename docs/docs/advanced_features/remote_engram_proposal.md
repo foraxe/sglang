@@ -205,10 +205,16 @@ opt-in. Two graph buckets with changing IDs and overlapping 16-lane prefetch
 passed a synthetic component test. Concurrent graph replays on different
 streams, failures, and Shared-Engram decode graph in a real P/D service have
 not been qualified. Prefill-side graph capture is a separate limitation.
-The DOCA 3.5 adapter does not implement the legacy research peer-retirement
-hook; do not enable `ENGRAM_SHARED_RETIRE_PEERS` with it. Normal reader close
-and owner shutdown have component coverage, but repeated peer reclamation and
-crash recovery need separate NIXL backend support and validation.
+The default DOCA 3.5 adapter does not expose peer retirement. An experimental
+owner-retirement build can set `ENGRAM_RESEARCH_PEER_RETIREMENT=1` when building
+the adapter, with the matching experimental NIXL source, plugin and dependency
+include paths. Enable `ENGRAM_SHARED_RETIRE_PEERS=1` on the owner only with that
+matching plugin; startup rejects a missing capability. This is a research
+interface, not the public NIXL API. Owner and readers must run the same control
+protocol version. Graceful scheduler shutdown drains shared readers before
+releasing their leases, with a longer scheduler exit window for this mode.
+Failed readers and forced shutdown can still leave uncertain leases; automatic
+crash recovery and safe in-flight fencing remain unproven.
 
 After readers have stopped and drained, create the owner stop file and wait for
 it to exit. Failed readers can leave orphan leases; this prototype intentionally

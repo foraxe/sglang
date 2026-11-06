@@ -487,7 +487,12 @@ _MANAGER_OWNED_FIELDS = ("model_path", "served_model_name")
 
 
 # Grace period from ShutdownReq to SIGKILL for each scheduler.
-_SCHEDULER_EXIT_TIMEOUT_SECS = 15
+_SCHEDULER_EXIT_TIMEOUT_SECS = (
+    180
+    if envs.SGLANG_EXPERIMENTAL_REMOTE_ENGRAM.get()
+    or envs.SGLANG_EXPERIMENTAL_LOCAL_SHARED_ENGRAM.get()
+    else 15
+)
 
 
 class TokenizerManager(TokenizerControlMixin, TokenizerManagerScoreMixin):
