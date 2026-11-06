@@ -214,9 +214,12 @@ interface, not the public NIXL API. Owner and readers must run the same control
 protocol version. Graceful scheduler shutdown drains shared readers before
 releasing their leases, with a longer scheduler exit window for this mode.
 A [follow-up NIXL research candidate](https://github.com/foraxe/nixl/commit/9d1b4557349c7100da106a966cd91e8b676fb72a)
-reduces head-of-line blocking in concurrent peer setup. It has component and
-cross-node coverage but has not yet been validated in this real-model serving
-configuration. Failed readers and forced shutdown can still leave uncertain
+reduces head-of-line blocking in concurrent peer setup. A real-model 1P1D C8
+smoke with the candidate on P and its owner completed 32 requests with outputs
+matching the prior run. After P shut down normally, all eight reader leases and
+their owner QPs were released. D retained its original local table; a temporary
+candidate owner registered the same backing without copying it. The test did
+not reproduce simultaneous D startup or a reader crash. Failed readers and forced shutdown can still leave uncertain
 leases; automatic crash recovery and safe in-flight fencing remain unproven. The graceful path
 has been exercised with Python HTTP serving and SIGTERM. Direct
 `Engine.shutdown()`, Rust listener shutdown and shutdown with active requests
