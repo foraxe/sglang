@@ -1,0 +1,58 @@
+python/sglang/srt/managers/scheduler.py
+  s_b02aaaf0b0d64c::t_e71b5cc2ed7d6d 2037-2047
+test/registered/unit/layers/test_remote_engram_retirement.py
+  s_b02aaaf0b0d64c::t_b7dfa2a807cde1 116-141,145-171
+  s_b02aaaf0b0d64c::t_fba46d9ad4c4ae 1-2,4-6,20-41,45-47,51,55-68,72-99,103-115
+  s_b02aaaf0b0d64c::t_c136127722dcee 42-44,48-50,52-54,69-71,100-102,142-144
+python/sglang/srt/managers/tokenizer_manager.py
+  s_b02aaaf0b0d64c::t_e71b5cc2ed7d6d 490-495
+python/sglang/srt/engram_share/rdma/provider.py
+  s_b02aaaf0b0d64c::t_e71b5cc2ed7d6d 15-20
+python/sglang/srt/engram_share/rdma/native/engram_native_nixl35.cu
+  s_b02aaaf0b0d64c::t_464ae5835ff40c 8-11,723,735-755
+  s_b02aaaf0b0d64c::t_aa9e76c5bcb7b1 724-734
+python/sglang/srt/engram_share/rdma/engram_transport.py
+  s_b02aaaf0b0d64c::t_aa9e76c5bcb7b1 154-162
+python/sglang/srt/engram_share/rdma/local.py
+  s_b02aaaf0b0d64c::t_5b82c85ec34d9b 39-40,44-45,47,99-100
+  s_b02aaaf0b0d64c::t_e71b5cc2ed7d6d 17-22
+test/registered/unit/layers/test_remote_engram_owner.py
+  s_b02aaaf0b0d64c::t_fba46d9ad4c4ae 85,87
+docs/docs/advanced_features/remote_engram_proposal.md
+  s_b02aaaf0b0d64c::t_07933c3916013e 208-217
+python/sglang/srt/engram_share/rdma/owner.py
+  s_b02aaaf0b0d64c::t_aa9e76c5bcb7b1 532-533
+  s_b02aaaf0b0d64c::t_94af6ff0e72cd6 378
+python/sglang/srt/engram_share/rdma/owner_control.py
+  s_b02aaaf0b0d64c::t_221f1c1cda94dd 143-144,216-253
+  s_b02aaaf0b0d64c::t_c136127722dcee 290-292,313-315,319-320
+  s_b02aaaf0b0d64c::t_e7625790e4509f 284,309-312,316-318,321-324
+  s_b02aaaf0b0d64c::t_94af6ff0e72cd6 169
+  s_b02aaaf0b0d64c::t_20b0d6f0648aa6 19-20,84,86-89,158-168,170,173-174,177,201-206,209,283,288-289,293-299
+  s_b02aaaf0b0d64c::t_d02eadd99e39c0 254
+python/sglang/srt/engram_share/rdma/runtime.py
+  s_b02aaaf0b0d64c::t_5b82c85ec34d9b 61,78,206
+test/registered/unit/layers/test_remote_engram.py
+  s_b02aaaf0b0d64c::t_b152eca1bad6ae 30-50,54-62
+  s_b02aaaf0b0d64c::t_8eebb9ea0ec7ce 63-72,76-83
+  s_b02aaaf0b0d64c::t_89dfe45c6c11a1 51-53,73-75
+python/sglang/srt/engram_share/rdma/native/build_engram_native_nixl35.sh
+  s_b02aaaf0b0d64c::t_464ae5835ff40c 18,20-27,30,33
+  s_b02aaaf0b0d64c::t_291e500ebb57b1 19,28-29,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "840fd2bcae10c277c22e960fed246accc032e6e5",
+  "prompts": {},
+  "sessions": {
+    "s_b02aaaf0b0d64c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a187d1-dc48-7243-b1c5-e64b7d932a1a",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
