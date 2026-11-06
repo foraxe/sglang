@@ -1,0 +1,23 @@
+test/registered/unit/layers/test_remote_engram.py
+  s_b02aaaf0b0d64c::t_d6d3129d2271d5 1,30-32,36-56
+  s_b02aaaf0b0d64c::t_4a25784d644652 33-35
+  s_b02aaaf0b0d64c::t_18fa5e99734d48 57
+python/sglang/srt/managers/tokenizer_manager.py
+  s_b02aaaf0b0d64c::t_139119c54b8bc4 944-948
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "dec87665651063bec9dd48d3637a8a2e71340b1b",
+  "prompts": {},
+  "sessions": {
+    "s_b02aaaf0b0d64c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a187d1-dc48-7243-b1c5-e64b7d932a1a",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
