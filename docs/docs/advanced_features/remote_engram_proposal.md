@@ -214,7 +214,10 @@ interface, not the public NIXL API. Owner and readers must run the same control
 protocol version. Graceful scheduler shutdown drains shared readers before
 releasing their leases, with a longer scheduler exit window for this mode.
 Failed readers and forced shutdown can still leave uncertain leases; automatic
-crash recovery and safe in-flight fencing remain unproven.
+crash recovery and safe in-flight fencing remain unproven. The graceful path
+has been exercised with Python HTTP serving and SIGTERM. Direct
+`Engine.shutdown()`, Rust listener shutdown and shutdown with active requests
+need separate validation.
 
 After readers have stopped and drained, create the owner stop file and wait for
 it to exit. Failed readers can leave orphan leases; this prototype intentionally
