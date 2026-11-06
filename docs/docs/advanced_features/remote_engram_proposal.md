@@ -207,8 +207,8 @@ streams, failures, and Shared-Engram decode graph in a real P/D service have
 not been qualified. Prefill-side graph capture is a separate limitation.
 The default DOCA 3.5 adapter does not expose peer retirement. An experimental
 owner-retirement build can set `ENGRAM_RESEARCH_PEER_RETIREMENT=1` when building
-the adapter, with the matching experimental NIXL source, plugin and dependency
-include paths. Enable `ENGRAM_SHARED_RETIRE_PEERS=1` on the owner only with that
+the adapter, using the matching [experimental NIXL source and plugin](https://github.com/foraxe/nixl/commit/a073ac61d7298a8c327b0a5c1a269c13a9c94f10)
+and dependency include paths. Enable `ENGRAM_SHARED_RETIRE_PEERS=1` on the owner only with that
 matching plugin; startup rejects a missing capability. This is a research
 interface, not the public NIXL API. Owner and readers must run the same control
 protocol version. Graceful scheduler shutdown drains shared readers before
