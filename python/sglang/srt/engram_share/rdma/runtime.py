@@ -173,14 +173,30 @@ class ReaderRuntime:
         with _reader_device_scope(
             os.environ.get("ENGRAM_SHARED_READER_DEVICES"), gpu
         ) as self.reader_device:
-            self.context = ReadPlan(
-                os.environ["ENGRAM_SHARED_LIBRARY"],
-                gpu,
-                port,
-                lanes,
-                self.max_queries,
-                graph_sizes,
-            )
+            gather_library = os.environ.get("ENGRAM_SHARED_GATHER_LIBRARY")
+            if gather_library:
+                from sglang.srt.engram_share.rdma.gather import GatherReadPlan
+
+                self.context = GatherReadPlan(
+                    os.environ["ENGRAM_SHARED_LIBRARY"],
+                    gather_library,
+                    gpu,
+                    port,
+                    lanes,
+                    os.environ["GPUNETIO_DEVICE_API_RDMA"],
+                    int(os.environ["GPUNETIO_DEVICE_API_GID_INDEX"]),
+                    self.max_queries,
+                    graph_sizes,
+                )
+            else:
+                self.context = ReadPlan(
+                    os.environ["ENGRAM_SHARED_LIBRARY"],
+                    gpu,
+                    port,
+                    lanes,
+                    self.max_queries,
+                    graph_sizes,
+                )
         self.context.register([self.arena], host=False)
         if os.environ.get("ENGRAM_SHARED_DECODE_GRAPH") == "1":
             from sglang.srt.engram_share.rdma.engram_transport import Context
@@ -206,8 +222,14 @@ class ReaderRuntime:
             self._pending_peer_names = peers
             self.lease.bind_peers(peers)
             self._peers_bound = True
+        native_md = base64.b64decode(md["native_md"], validate=True)
+        if gather_library:
+            gather = self.lease.prepare_gather()
+            if gather.get("protocol") != "gather_graph_v1":
+                raise ValueError("unsupported gather protocol")
+            native_md = json.dumps({**gather, "native_md": md["native_md"]}).encode()
         self.context.connect_raw(
-            base64.b64decode(md["native_md"], validate=True),
+            native_md,
             md["addresses"],
             md["lengths"],
             md["owner_gpu"],
@@ -387,12 +409,17 @@ class ReaderRuntime:
 
     def close(self):
         if not self.closed:
-            # Native close retires CUDA/NIC consumers before the owner lease.
-            if self.graph_context is not None:
-                self.graph_context.close()
-            self.context.close()
-            self.lease.release()
-            self.closed = True
+            try:
+                # Native close retires CUDA/NIC consumers before the owner lease.
+                if self.graph_context is not None:
+                    self.graph_context.close()
+                self.context.close()
+                self.lease.release()
+                self.closed = True
+            except BaseException:
+                # Keep graph, arena, context and registered backing referenced.
+                _quarantined.append(self)
+                raise
 
     def _controlled_drain(self, *_):
         # Research controller stops admission and waits for all HTTP requests

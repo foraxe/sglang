@@ -69,7 +69,15 @@ class OwnerServer(AbstractContextManager):
     leases or claims that device work has completed.
     """
 
-    def __init__(self, metadata, host="127.0.0.1", port=0, retire_peer=None):
+    def __init__(
+        self,
+        metadata,
+        host="127.0.0.1",
+        port=0,
+        retire_peer=None,
+        gather_factory=None,
+        max_gather_sessions=0,
+    ):
         if not isinstance(metadata, dict) or not isinstance(
             metadata.get("checkpoint_id"), str
         ):
@@ -88,6 +96,14 @@ class OwnerServer(AbstractContextManager):
         self._used_peers = set()
         self._retiring = set()
         self._retire_peer = retire_peer
+        if gather_factory is not None and max_gather_sessions < 1:
+            raise ValueError("gather sessions require a positive capacity")
+        self._gather_factory = gather_factory
+        self._max_gather_sessions = max_gather_sessions
+        self._gather_sessions = {}
+        self._gather_creating = set()
+        self._gather_failed = set()
+        self._gather_quarantine = {}
         self._draining = False
         self._closed = False
         owner = self
@@ -142,6 +158,8 @@ class OwnerServer(AbstractContextManager):
         op = request.get("op")
         if op == "release":
             return self._release(request)
+        if op == "prepare_gather":
+            return self._prepare_gather(request)
         with self._lock:
             if self._closed:
                 raise ControlError("owner is closed")
@@ -213,6 +231,50 @@ class OwnerServer(AbstractContextManager):
                 return {"draining": True, "leases": len(self._leases)}
             raise ValueError("unknown operation")
 
+    def _prepare_gather(self, request):
+        lease = request.get("lease")
+        with self._condition:
+            self._check_generation(request)
+            if self._closed or self._gather_factory is None:
+                raise ControlError("gather is unavailable")
+            if not isinstance(lease, str) or lease not in self._leases:
+                raise ControlError("unknown lease")
+            while lease in self._gather_creating:
+                self._condition.wait()
+            if lease in self._gather_failed:
+                raise ControlError("gather setup failed; lease retained")
+            if lease in self._retiring or lease not in self._leases:
+                raise ControlError("lease is being released")
+            if lease in self._gather_sessions:
+                return {"gather": self._gather_sessions[lease].metadata}
+            if self._draining:
+                raise ControlError("owner is draining")
+            occupied = (
+                set(self._gather_sessions) | self._gather_creating | self._gather_failed
+            )
+            if len(occupied) >= self._max_gather_sessions:
+                raise ControlError("gather session capacity reached")
+            self._gather_creating.add(lease)
+        session = None
+        try:
+            session = self._gather_factory()
+            # Ensure a serializable bounded response before publishing it.
+            if len(json.dumps(session.metadata).encode("utf-8")) > MAX_FRAME // 2:
+                raise ValueError("gather metadata too large")
+        except BaseException as exc:
+            with self._condition:
+                self._gather_creating.remove(lease)
+                self._gather_failed.add(lease)
+                if session is not None:
+                    self._gather_quarantine[lease] = session
+                self._condition.notify_all()
+            raise ControlError("gather setup failed; lease retained") from exc
+        with self._condition:
+            self._gather_creating.remove(lease)
+            self._gather_sessions[lease] = session
+            self._condition.notify_all()
+            return {"gather": session.metadata}
+
     def _release(self, request):
         lease = request.get("lease")
         with self._condition:
@@ -221,12 +283,16 @@ class OwnerServer(AbstractContextManager):
             self._check_generation(request)
             if not isinstance(lease, str):
                 raise ControlError("unknown or already released lease")
+            while lease in self._gather_creating:
+                self._condition.wait()
             while lease in self._retiring:
                 self._condition.wait()
             if lease in self._released_leases:
                 return {"released": True, "replayed": True}
             if lease not in self._leases:
                 raise ControlError("unknown or already released lease")
+            if lease in self._gather_failed:
+                raise ControlError("gather setup failed; lease retained")
             peers = self._leases[lease]
             if self._retire_peer is not None and peers is None:
                 raise ControlError(
@@ -235,6 +301,16 @@ class OwnerServer(AbstractContextManager):
             self._retiring.add(lease)
         error = None
         try:
+            session = self._gather_sessions.get(lease)
+            if session is not None:
+                try:
+                    session.close()
+                except BaseException:
+                    with self._condition:
+                        self._gather_failed.add(lease)
+                    raise
+                with self._condition:
+                    del self._gather_sessions[lease]
             for peer in peers or ():
                 self._retire_peer(peer)
         except BaseException as exc:
@@ -248,7 +324,7 @@ class OwnerServer(AbstractContextManager):
                 self._condition.notify_all()
         if error is not None:
             raise ControlError(
-                f"peer retirement failed; lease retained: {error}"
+                f"resource retirement failed; lease retained: {error}"
             ) from error
         return {"released": True}
 
@@ -342,6 +418,11 @@ class Lease(AbstractContextManager):
         if self._released:
             raise ControlError("lease already released")
         return self.client._request("bind_peers", lease=self.token, peers=list(peers))
+
+    def prepare_gather(self):
+        if self._released:
+            raise ControlError("lease already released")
+        return self.client._request("prepare_gather", lease=self.token)["gather"]
 
     def release(self):
         if self._released:

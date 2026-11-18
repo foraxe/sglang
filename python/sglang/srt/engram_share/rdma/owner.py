@@ -532,11 +532,29 @@ class RealCheckpointOwner:
         if retire_peers and not self.context.peer_retirement_supported():
             raise RuntimeError("native library or plugin lacks owner peer retirement")
         metadata["peer_retirement"] = retire_peers
+        gather_factory = None
+        gather_capacity = 0
+        if os.environ.get("ENGRAM_SHARED_GATHER_LIBRARY"):
+            from sglang.srt.engram_share.rdma.gather import GatherSessionFactory
+
+            gather_capacity = int(os.environ["ENGRAM_SHARED_GATHER_MAX_READERS"])
+            gather_factory = GatherSessionFactory(
+                os.environ["ENGRAM_SHARED_GATHER_LIBRARY"],
+                self.args.owner_gpu,
+                os.environ["GPUNETIO_DEVICE_API_RDMA"],
+                int(os.environ["GPUNETIO_DEVICE_API_GID_INDEX"]),
+                self.args.advertise_host,
+                int(os.environ["ENGRAM_SHARED_GATHER_PORT_BASE"]),
+                gather_capacity,
+                self.table_views,
+            )
         self.control = CountingOwnerServer(
             metadata,
             host=self.args.control_host,
             port=self.args.control_port,
             retire_peer=self.context.retire_idle_peer if retire_peers else None,
+            gather_factory=gather_factory,
+            max_gather_sessions=gather_capacity,
         ).start()
         self.ready = {
             "state": "ready",
