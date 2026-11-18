@@ -46,6 +46,16 @@ def main():
             reader = table.runtime
         if not reader.prefetch_enabled or not hasattr(reader.context, "graph_sizes"):
             raise RuntimeError("enable prefetch and the prepared READ plan")
+        barrier = os.environ.get("ENGRAM_SMOKE_BARRIER_DIR")
+        if barrier:
+            barrier_path = Path(barrier)
+            rank = os.environ["ENGRAM_SMOKE_BARRIER_RANK"]
+            (barrier_path / f"reader-{rank}.ready").touch(exist_ok=False)
+            deadline = time.monotonic() + 600
+            while not (barrier_path / "release").exists():
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("multi-reader test barrier timed out")
+                time.sleep(1)
         values = [0, 1, 1234, 8191]
         base = torch.tensor(values, dtype=torch.int64, device="cuda")
         tokens = int(os.environ.get("ENGRAM_SMOKE_TOKENS", "256"))
