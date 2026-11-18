@@ -148,7 +148,6 @@ def main():
                 expected = (
                     weights
                     * torch.exp2(scales.int().float() - 127).repeat_interleave(32, 1)
-                    + 0.0
                 ).to(torch.bfloat16)
                 ids_cpu = ordered_unique[:, layer_index, :].reshape(-1).cpu()
                 expected_layers.append(expected[ids_cpu].contiguous().view(torch.int16))
@@ -182,10 +181,20 @@ def main():
                 end.synchronize()
                 wall_ms = (time.perf_counter() - wall) * 1000
                 gpu_ms = start.elapsed_time(end)
-                for actual, expected in zip(results, expected_layers):
-                    assert torch.equal(
-                        actual.cpu().contiguous().view(torch.int16), expected
-                    )
+                for layer_index, (actual, expected) in enumerate(
+                    zip(results, expected_layers)
+                ):
+                    bits = actual.cpu().contiguous().view(torch.int16)
+                    if not torch.equal(bits, expected):
+                        mismatch = (bits != expected).nonzero()
+                        row, col = mismatch[0].tolist()
+                        raise AssertionError(
+                            f"layer={layers[layer_index]} iteration={iteration} "
+                            f"query={row} col={col} "
+                            f"id={int(ordered_unique[:, layer_index, :].reshape(-1)[row])} "
+                            f"got={int(bits[row, col])} expected={int(expected[row, col])} "
+                            f"mismatches={mismatch.shape[0]}"
+                        )
                 if iteration >= 3:
                     samples.append({"gpu_ms": gpu_ms, "wall_ms": wall_ms})
             print(
