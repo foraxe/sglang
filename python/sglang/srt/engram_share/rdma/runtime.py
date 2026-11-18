@@ -150,6 +150,7 @@ class ReaderRuntime:
         self.ranges = {}
         self.prefetch_ids = None
         self.prefetch_issued = set()
+        self._gather_consumed_layers = set()
         self.defer_layer14 = os.environ.get("ENGRAM_SHARED_DEFER_LAYER14") == "1"
         self.forward_cp_expected = False
         self.comm_stream = torch.cuda.Stream(device=gpu)
@@ -281,6 +282,8 @@ class ReaderRuntime:
             # Tiny/non-CP forwards (including health requests) never run
             # the full-CP hash hook. Keep the same producer stream even
             # when a synchronous read is required.
+            if hasattr(self.context, "begin_execution"):
+                self.context.begin_execution()
             self.comm_stream.wait_stream(torch.cuda.current_stream())
             with torch.cuda.stream(self.comm_stream):
                 ids.record_stream(self.comm_stream)
@@ -343,6 +346,8 @@ class ReaderRuntime:
         self.forward_cp_expected = True
         if n > self.max_queries:
             raise ValueError("prefetch exceeds registered scratch")
+        if hasattr(self.context, "begin_execution"):
+            self.context.begin_execution()
         # Match native cat([hash[r::CP] padded to hidden_rows] for r in CP).
         ordered = full_hash_ids.new_zeros(
             (cp_size * local_rows, *full_hash_ids.shape[1:])
@@ -392,8 +397,11 @@ class ReaderRuntime:
             self._enqueue_prefetch_layer(layer)
 
     def start_forward(self, cp_extend):
+        if getattr(self.context, "execution_active", False) is True:
+            raise RuntimeError("previous gathered Engram forward did not retire")
         self.prefetch_ids = None
         self.prefetch_issued = set()
+        self._gather_consumed_layers = set()
         self.forward_cp_expected = bool(cp_extend)
 
     def record_consumed(self, layer):
@@ -406,6 +414,10 @@ class ReaderRuntime:
         with torch.cuda.stream(self.comm_stream):
             self.comm_stream.wait_event(self.consumed_events[layer])
             self.context.record_consumed()
+            if hasattr(self.context, "end_execution"):
+                self._gather_consumed_layers.add(layer)
+                if self._gather_consumed_layers == {1, 14}:
+                    self.context.end_execution()
 
     def close(self):
         if not self.closed:

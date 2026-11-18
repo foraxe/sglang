@@ -1,6 +1,7 @@
 import threading
 import unittest
 import socket
+from contextlib import nullcontext
 from unittest import mock
 
 from sglang.srt.engram_share.rdma import owner_control
@@ -24,6 +25,36 @@ class Session:
 
 
 class GatherControlTests(unittest.TestCase):
+    def test_forward_rejects_unretired_execution(self):
+        from sglang.srt.engram_share.rdma import runtime
+
+        reader = runtime.ReaderRuntime.__new__(runtime.ReaderRuntime)
+        reader.context = mock.Mock(execution_active=True)
+        with self.assertRaisesRegex(RuntimeError, "did not retire"):
+            reader.start_forward(True)
+
+    def test_execution_ends_after_both_layers_are_consumed(self):
+        from sglang.srt.engram_share.rdma import runtime
+
+        reader = runtime.ReaderRuntime.__new__(runtime.ReaderRuntime)
+        reader.context = mock.Mock()
+        reader.comm_stream = mock.Mock()
+        reader.consumed_events = {1: mock.Mock(), 14: mock.Mock()}
+        reader._gather_consumed_layers = set()
+        with (
+            mock.patch.object(
+                runtime.torch.cuda, "is_current_stream_capturing", return_value=False
+            ),
+            mock.patch.object(
+                runtime.torch.cuda, "current_stream", return_value=mock.Mock()
+            ),
+            mock.patch.object(runtime.torch.cuda, "stream", return_value=nullcontext()),
+        ):
+            reader.record_consumed(1)
+            reader.context.end_execution.assert_not_called()
+            reader.record_consumed(14)
+            reader.context.end_execution.assert_called_once_with()
+
     def test_factory_reuses_table_backing_but_not_endpoints(self):
         from sglang.srt.engram_share.rdma import gather
 

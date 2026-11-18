@@ -36,7 +36,9 @@ def _api(path):
             C.c_int,
         ),
         "gg_record_consumed": ([ptr, u64], C.c_int),
-        "gg_reader_check": ([ptr], C.c_int),
+        "gg_reader_begin_execution_wait": ([ptr, u32], C.c_int),
+        "gg_reader_end_execution": ([ptr, u64], C.c_int),
+        "gg_reader_prepare_close": ([ptr], C.c_int),
         "gg_reader_close": ([ptr], C.c_int),
     }
     for name, (args, result) in signatures.items():
@@ -138,6 +140,31 @@ class GatherReadPlan(ReadPlan):
         self.lib, self.device, self.gid = _api(bulk_library), device, gid
         self.threshold, self.bulk = threshold, None
         self.native_used, self.bulk_used = set(), False
+        self.execution_active = False
+        self.execution_owner = None
+
+    def begin_execution(self):
+        if self.execution_active:
+            if self.execution_owner != threading.get_ident():
+                raise RuntimeError("gather execution belongs to another thread")
+            return
+        _check(self.lib, self.lib.gg_reader_begin_execution_wait(self.bulk, 8000))
+        self.execution_active = True
+        self.execution_owner = threading.get_ident()
+
+    def end_execution(self):
+        if self.execution_active:
+            if self.execution_owner != threading.get_ident():
+                raise RuntimeError("gather execution belongs to another thread")
+            stream = torch.cuda.current_stream(self.gpu).cuda_stream
+            _check(self.lib, self.lib.gg_reader_end_execution(self.bulk, stream))
+            self.execution_active = False
+            self.execution_owner = None
+
+    def prime(self, *args):
+        self.begin_execution()
+        super().prime(*args)
+        self.end_execution()
 
     def register(self, tensors, host):
         super().register(tensors, host)
@@ -262,7 +289,7 @@ class GatherReadPlan(ReadPlan):
         if self.bulk:
             # Do not destroy graph references when a device or worker error
             # requires the entire reader to remain quarantined.
-            _check(self.lib, self.lib.gg_reader_check(self.bulk))
+            _check(self.lib, self.lib.gg_reader_prepare_close(self.bulk))
         self.plans.clear()
         if self.bulk:
             _check(self.lib, self.lib.gg_reader_close(self.bulk))

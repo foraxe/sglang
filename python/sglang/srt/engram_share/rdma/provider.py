@@ -93,6 +93,8 @@ class RemoteEngramTable:
             raise RuntimeError("remote Engram reader has not finished loading")
         out = new_rows(indices)
         if not indices.numel():
+            if hasattr(self.runtime.context, "end_execution"):
+                self.runtime.record_consumed(self.layer_id)
             return out
         capturing = torch.cuda.is_current_stream_capturing()
         ids, weight, _ = self.runtime.fetch(
