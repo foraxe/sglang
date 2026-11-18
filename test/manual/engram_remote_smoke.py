@@ -7,6 +7,8 @@ access to the same checkpoint, and the matching legacy native library.
 
 import json
 import os
+import statistics
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -118,6 +120,77 @@ def main():
         if reader.context.graph_replays < 2:
             raise RuntimeError("expected a graph replay for each layer")
         print(f"PASS graph_replays={reader.context.graph_replays}", flush=True)
+        rounds = int(os.environ.get("ENGRAM_SMOKE_TIMING_ROUNDS", "0"))
+        if rounds:
+            # Exercise distinct rows through the same provider/prefetch path.
+            row_ids = torch.arange(tokens * 16, dtype=torch.int64, device="cuda")
+            full_unique = torch.stack((row_ids.view(tokens, 16),) * 2, dim=1)
+            ordered_unique = torch.cat([full_unique[rank::4] for rank in range(4)])
+            expected_layers = []
+            for layer_index, layer in enumerate(layers):
+                key_w = f"layers.{layer}.engram.embed.weight"
+                key_s = f"layers.{layer}.engram.embed.scale"
+                with safe_open(
+                    str(model / index[key_w]), framework="pt", device="cpu"
+                ) as f:
+                    weights = f.get_slice(key_w)[: tokens * 16].float()
+                    scales = f.get_slice(key_s)[: tokens * 16].view(torch.uint8)
+                expected = (
+                    weights
+                    * torch.exp2(scales.int().float() - 127).repeat_interleave(32, 1)
+                    + 0.0
+                ).to(torch.bfloat16)
+                ids_cpu = ordered_unique[:, layer_index, :].reshape(-1).cpu()
+                expected_layers.append(expected[ids_cpu].contiguous().view(torch.int16))
+            samples = []
+            for iteration in range(rounds + 3):
+                torch.cuda.synchronize()
+                start, end = (
+                    torch.cuda.Event(enable_timing=True),
+                    torch.cuda.Event(enable_timing=True),
+                )
+                wall = time.perf_counter()
+                start.record()
+                remote_engram.prepare_forward(True)
+                remote_engram.prefetch_full_hash(full_unique, tokens // 4, 4)
+                results = []
+                for layer_index, layer in enumerate(layers):
+                    ids = ordered_unique[:, layer_index, :].contiguous().view(-1)
+                    results.append(
+                        tables[layer_index].lookup(
+                            ids,
+                            0,
+                            int(config["engram_num_embeddings"][layer_index]),
+                            lambda query: torch.empty(
+                                (query.numel(), 256),
+                                dtype=torch.bfloat16,
+                                device="cuda",
+                            ),
+                        )
+                    )
+                end.record()
+                end.synchronize()
+                wall_ms = (time.perf_counter() - wall) * 1000
+                gpu_ms = start.elapsed_time(end)
+                for actual, expected in zip(results, expected_layers):
+                    assert torch.equal(
+                        actual.cpu().contiguous().view(torch.int16), expected
+                    )
+                if iteration >= 3:
+                    samples.append({"gpu_ms": gpu_ms, "wall_ms": wall_ms})
+            print(
+                "TIMING "
+                + json.dumps(
+                    {
+                        "rows_per_layer": tokens * 16,
+                        "rounds": rounds,
+                        "gpu_p50_ms": statistics.median(x["gpu_ms"] for x in samples),
+                        "wall_p50_ms": statistics.median(x["wall_ms"] for x in samples),
+                        "samples": samples,
+                    }
+                ),
+                flush=True,
+            )
     finally:
         if reader is not None:
             reader.close()
