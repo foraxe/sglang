@@ -1219,6 +1219,18 @@ class EngramEmbedding(nn.Module):
         rows = slice(self.row_start, self.row_start + self.rows)
         if self._shared:
             param.data[rows].copy_(loaded_weight[rows])
+        elif (
+            self.pool_table is not None and param.is_cuda and not param.is_contiguous()
+        ):
+            # CPU-to-CUDA copies into a strided VMM view may stage in HBM.
+            # Bound that temporary even for a Grace-backed shard.
+            source = loaded_weight[rows]
+            rows_per_copy = max(
+                1, (64 << 20) // (param.shape[1] * param.element_size())
+            )
+            for start in range(0, self.rows, rows_per_copy):
+                chunk = slice(start, start + rows_per_copy)
+                param.data[chunk].copy_(source[chunk])
         else:
             param.data.copy_(loaded_weight[rows])
         if self.host_table is not None:
