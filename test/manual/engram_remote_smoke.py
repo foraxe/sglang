@@ -46,11 +46,14 @@ def main():
             raise RuntimeError("enable prefetch and the prepared READ plan")
         values = [0, 1, 1234, 8191]
         base = torch.tensor(values, dtype=torch.int64, device="cuda")
-        full = base[torch.arange(256 * 2 * 16, device="cuda").remainder(4)].view(
-            256, 2, 16
+        tokens = int(os.environ.get("ENGRAM_SMOKE_TOKENS", "256"))
+        if tokens < 4 or tokens % 4:
+            raise ValueError("ENGRAM_SMOKE_TOKENS must be a positive multiple of four")
+        full = base[torch.arange(tokens * 2 * 16, device="cuda").remainder(4)].view(
+            tokens, 2, 16
         )
         remote_engram.prepare_forward(True)
-        remote_engram.prefetch_full_hash(full, 64, 4)
+        remote_engram.prefetch_full_hash(full, tokens // 4, 4)
         ordered = torch.cat([full[rank::4] for rank in range(4)], dim=0)
         references = []
         for layer_index, layer in enumerate(layers):
