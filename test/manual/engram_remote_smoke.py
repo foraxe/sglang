@@ -168,6 +168,7 @@ def main():
                     torch.cuda.Event(enable_timing=True),
                 )
                 wall = time.perf_counter()
+                cpu = time.process_time()
                 start.record()
                 remote_engram.prepare_forward(True)
                 remote_engram.prefetch_full_hash(full_unique, tokens // 4, 4)
@@ -189,6 +190,7 @@ def main():
                 end.record()
                 end.synchronize()
                 wall_ms = (time.perf_counter() - wall) * 1000
+                cpu_ms = (time.process_time() - cpu) * 1000
                 gpu_ms = start.elapsed_time(end)
                 for layer_index, (actual, expected) in enumerate(
                     zip(results, expected_layers)
@@ -205,7 +207,9 @@ def main():
                             f"mismatches={mismatch.shape[0]}"
                         )
                 if iteration >= 3:
-                    samples.append({"gpu_ms": gpu_ms, "wall_ms": wall_ms})
+                    samples.append(
+                        {"gpu_ms": gpu_ms, "wall_ms": wall_ms, "reader_cpu_ms": cpu_ms}
+                    )
             print(
                 "TIMING "
                 + json.dumps(
@@ -214,6 +218,9 @@ def main():
                         "rounds": rounds,
                         "gpu_p50_ms": statistics.median(x["gpu_ms"] for x in samples),
                         "wall_p50_ms": statistics.median(x["wall_ms"] for x in samples),
+                        "reader_cpu_p50_ms": statistics.median(
+                            x["reader_cpu_ms"] for x in samples
+                        ),
                         "samples": samples,
                     }
                 ),
