@@ -1,0 +1,20 @@
+test/manual/engram_remote_smoke.py
+  s_b02aaaf0b0d64c::t_b07d4bc3f99bff 47-52
+  s_b02aaaf0b0d64c::t_4f65cade08a04c 53-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c217d70fb9448b591ee6c8ed16879d5b806fa690",
+  "prompts": {},
+  "sessions": {
+    "s_b02aaaf0b0d64c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a187d1-dc48-7243-b1c5-e64b7d932a1a",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
