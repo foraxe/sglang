@@ -151,6 +151,7 @@ class ReaderRuntime:
         self.prefetch_ids = None
         self.prefetch_issued = set()
         self._gather_consumed_layers = set()
+        self._report_graph_replay = os.environ.get("ENGRAM_SHARED_REPORT_GRAPH") == "1"
         self.defer_layer14 = os.environ.get("ENGRAM_SHARED_DEFER_LAYER14") == "1"
         self.forward_cp_expected = False
         self.comm_stream = torch.cuda.Stream(device=gpu)
@@ -411,6 +412,20 @@ class ReaderRuntime:
             self.graph_context.record_consumed()
             return
         self.consumed_events[layer].record(torch.cuda.current_stream())
+        if getattr(
+            self, "_report_graph_replay", False
+        ) and self.context.graph_replays > 2 * len(self.context.graph_sizes):
+            print(
+                json.dumps(
+                    {
+                        "event": "shared-engram-serving-graph-replay",
+                        "layer": layer,
+                        "gpu": torch.cuda.current_device(),
+                    }
+                ),
+                flush=True,
+            )
+            self._report_graph_replay = False
         with torch.cuda.stream(self.comm_stream):
             self.comm_stream.wait_event(self.consumed_events[layer])
             self.context.record_consumed()
