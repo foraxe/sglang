@@ -9,7 +9,8 @@ class EngramPlacement:
     GPU = "gpu"
     CPU = "cpu"
     EXTERNAL = "external"
-    ALL = (GPU, CPU, EXTERNAL)
+    EGM = "egm"
+    ALL = (GPU, CPU, EXTERNAL, EGM)
 
 
 class EngramReplication:
@@ -46,6 +47,8 @@ class EngramConfig:
     lookup: str = _choice(EngramLookup.AUTO, EngramLookup.ALL)
     shared_host_endpoint: Optional[str] = None
     shared_host_generation: Optional[str] = None
+    peer_group_size: int = 0
+    peer_group_store: Optional[str] = None
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "EngramConfig":
@@ -67,6 +70,29 @@ class EngramConfig:
                 f"--engram-config: invalid {', '.join(invalid)}; choices: {choices}"
             )
         config = cls(**raw)
+        if (
+            type(config.peer_group_size) is not int
+            or config.peer_group_size == 1
+            or config.peer_group_size < 0
+            or (config.peer_group_size > 0)
+            != (
+                isinstance(config.peer_group_store, str)
+                and bool(config.peer_group_store)
+            )
+            or (config.peer_group_size == 0 and config.peer_group_store is not None)
+        ):
+            raise ValueError("--engram-config: peer_group_size >= 2 needs a store path")
+        if config.peer_group_size and (
+            config.lookup != EngramLookup.PEER_READ
+            or config.placement not in (EngramPlacement.GPU, EngramPlacement.EGM)
+            or config.replication != EngramReplication.NONE
+        ):
+            raise ValueError(
+                "--engram-config: peer groups require GPU or EGM placement, "
+                "peer_read lookup and no replication"
+            )
+        if config.placement == EngramPlacement.EGM and not config.peer_group_size:
+            raise ValueError("--engram-config: EGM placement requires a peer group.")
         external_fields = (
             config.shared_host_endpoint,
             config.shared_host_generation,
@@ -93,13 +119,12 @@ class EngramConfig:
             raise ValueError(
                 "--engram-config: direct lookup requires external placement."
             )
-        if (
-            config.lookup == EngramLookup.PEER_READ
-            and config.placement != EngramPlacement.GPU
+        if config.lookup == EngramLookup.PEER_READ and config.placement not in (
+            EngramPlacement.GPU,
+            EngramPlacement.EGM,
         ):
             raise ValueError(
-                "--engram-config: lookup 'peer_read' reads GPU shards; it needs "
-                "placement 'gpu'."
+                "--engram-config: lookup 'peer_read' needs GPU or EGM placement."
             )
         if (
             config.replication == EngramReplication.PER_NODE

@@ -55,6 +55,8 @@ def _unsupported_derived_weight_cache_error(
     engram_config = get_exec().offload.engram_config
     if engram_config is not None and engram_config.placement == "external":
         return "Online weight updates require a new external Engram owner generation."
+    if engram_config is not None and engram_config.peer_group_size:
+        return "Engram peer groups must restart together to update weights."
     if model is not None and any(
         getattr(module, "_hc_attn_tf32_parts", None) is not None
         or getattr(module, "_hc_ffn_tf32_parts", None) is not None

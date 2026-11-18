@@ -36,6 +36,27 @@ sglang serve --model-path deepseek-ai/DeepSeek-V4.1-Flash --tp-size 4 \
   --engram-config '{"placement": "cpu"}'
 ```
 
+### Share row shards across independent engines
+
+On a CUDA NVLink domain with FABRIC access, independent DeepSeek-V4.1
+engines can split each Engram table across the group. Use the
+same checkpoint and revision, a fresh file store on a trusted filesystem
+reachable by every engine, and one engine per GPU. Each engine loads its
+own rows and publishes its mapping after loading. Lookups read peer shards
+on the GPU.
+
+```sh
+sglang serve --model-path /models/DeepSeek-V4.1-Flash --tp-size 1 \
+  --engram-config '{"lookup":"peer_read","peer_group_size":2,"peer_group_store":"/shared/job/engram"}'
+```
+
+Use separate device masks and API ports for the engines. The initial mode
+requires TP/PP/DP/CP=1 and speculative decoding disabled. Start and restart
+the complete group together. Changing weights requires a fresh group.
+
+The default backing is GPU HBM. Set `"placement":"egm"` in the same config
+on Grace systems with CUDA HOST_NUMA VMM and sufficient host memory.
+
 ### External HOST_NUMA/FABRIC owner (experimental)
 
 An independent process can own one immutable FP8/E8M0 Engram generation for

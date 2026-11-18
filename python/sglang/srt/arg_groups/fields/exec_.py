@@ -1160,9 +1160,10 @@ class ExecOffload(msgspec.Struct):
         Optional[Dict[str, Any]],
         Arg(
             help="Where the DeepSeek-V4.1 Engram tables live, as JSON: "
-            "'placement' gpu|cpu, 'replication' none|per_node, 'lookup' "
+            "'placement' gpu|cpu|external|egm, 'replication' none|per_node, 'lookup' "
             "auto|all_reduce|reduce_scatter|all_to_all|peer_read; an omitted key "
             "takes the first value. "
+            "Cross-engine peer_read uses peer_group_size and peer_group_store. "
             "See docs/advanced_features/engram.",
             type_parser=json.loads,
         ),
