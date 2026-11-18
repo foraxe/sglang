@@ -189,6 +189,9 @@ class ReaderRuntime:
                     int(os.environ["GPUNETIO_DEVICE_API_GID_INDEX"]),
                     self.max_queries,
                     graph_sizes,
+                    threshold=int(
+                        os.environ.get("ENGRAM_SHARED_GATHER_THRESHOLD", "32768")
+                    ),
                 )
             else:
                 self.context = ReadPlan(
