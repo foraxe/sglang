@@ -3,6 +3,7 @@
 import logging
 from typing import Any, Dict
 
+from sglang.srt.arg_groups.engram_config import EngramConfig, validate_peer_topology
 from sglang.srt.arg_groups.model_override_base import (
     _register_for,
     get_default_attn_backend,
@@ -39,7 +40,16 @@ def _qwen4_exp_overrides(server_args: Any, hf_config: Any) -> dict:
         raise ValueError("Qwen4-Exp does not support --enable-unified-memory yet")
     overrides: Dict[str, Any] = {}
 
-    if cfg.ple_offload_embedding is None:
+    if cfg.engram_config is not None:
+        config = EngramConfig.from_dict(cfg.engram_config)
+        if not config.peer_group_size or not get_platform().is_cuda:
+            raise ValueError("Qwen4-Exp Engram config requires a CUDA PLE peer group")
+        validate_peer_topology(cfg, require_tp1=True)
+        if cfg.ple_offload_embedding:
+            raise ValueError("Qwen4-Exp PLE peer groups own their embedding placement")
+        overrides["engram_config"] = config
+        overrides["ple_offload_embedding"] = False
+    elif cfg.ple_offload_embedding is None:
         import torch
 
         overrides["ple_offload_embedding"] = (

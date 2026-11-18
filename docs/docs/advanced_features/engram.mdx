@@ -38,24 +38,32 @@ sglang serve --model-path deepseek-ai/DeepSeek-V4.1-Flash --tp-size 4 \
 
 ### Share row shards across independent engines
 
-On a CUDA NVLink domain with FABRIC access, independent DeepSeek-V4.1
-engines can split each Engram table across the group. Use the
-same checkpoint and revision, a fresh file store on a trusted filesystem
-reachable by every engine, and one engine per GPU. Each engine loads its
-own rows and publishes its mapping after loading. Lookups read peer shards
-on the GPU.
+Independent DeepSeek-V4.1 engines can split Engram tables across a group of
+GPU workers. Qwen3.8-Flash-Next-FP8 can use the same pool for its PLE table.
+Use the same checkpoint and revision, a fresh file store on a trusted
+filesystem reachable by every engine, and one peer per GPU worker. Each
+worker loads and publishes its own rows.
 
 ```sh
 sglang serve --model-path /models/DeepSeek-V4.1-Flash --tp-size 1 \
   --engram-config '{"lookup":"peer_read","peer_group_size":2,"peer_group_store":"/shared/job/engram"}'
 ```
 
-Use separate device masks and API ports for the engines. The initial mode
-requires TP/PP/DP/CP=1 and speculative decoding disabled. Start and restart
-the complete group together. Changing weights requires a fresh group.
+Use separate device masks and API ports for the engines. Set
+`peer_group_size` to the total GPU worker count, including all TP ranks.
+Peer groups require PP/DP/CP=1, speculative decoding disabled, and no
+two-batch overlap. Qwen PLE also requires TP=1 and FP8 table storage.
+Start and restart the complete group together. Changing weights requires a
+fresh group. The per-lookup token capacity is set by `peer_group_max_tokens`
+(default 16384).
 
-The default backing is GPU HBM. Set `"placement":"egm"` in the same config
-on Grace systems with CUDA HOST_NUMA VMM and sufficient host memory.
+| Transport | Shard placements | Requirements |
+| --- | --- | --- |
+| `nvlink` (default) | `gpu` for HBM, `egm` for Grace HOST_NUMA | One NVLink FABRIC domain with IMEX access. EGM requires CUDA host NUMA VMM and sufficient Grace memory. |
+| `rdma` | `gpu` for HBM, `cpu` for pinned host memory | Active mlx5 devices and a trusted RoCE or InfiniBand fabric. |
+
+Independent P and D engines can use the configured KV transfer connector
+alongside this pool. The peer store is used at startup.
 
 ### External HOST_NUMA/FABRIC owner (experimental)
 

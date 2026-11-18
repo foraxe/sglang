@@ -49,6 +49,8 @@ class EngramConfig:
     shared_host_generation: Optional[str] = None
     peer_group_size: int = 0
     peer_group_store: Optional[str] = None
+    peer_group_transport: str = _choice("nvlink", ("nvlink", "rdma"))
+    peer_group_max_tokens: int = 16384
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "EngramConfig":
@@ -82,14 +84,21 @@ class EngramConfig:
             or (config.peer_group_size == 0 and config.peer_group_store is not None)
         ):
             raise ValueError("--engram-config: peer_group_size >= 2 needs a store path")
+        host_placement = (
+            EngramPlacement.EGM
+            if config.peer_group_transport == "nvlink"
+            else EngramPlacement.CPU
+        )
         if config.peer_group_size and (
             config.lookup != EngramLookup.PEER_READ
-            or config.placement not in (EngramPlacement.GPU, EngramPlacement.EGM)
+            or config.placement not in (EngramPlacement.GPU, host_placement)
             or config.replication != EngramReplication.NONE
+            or type(config.peer_group_max_tokens) is not int
+            or config.peer_group_max_tokens <= 0
         ):
             raise ValueError(
-                "--engram-config: peer groups require GPU or EGM placement, "
-                "peer_read lookup and no replication"
+                "--engram-config: peer groups require peer_read, no replication, "
+                "a positive token capacity and gpu/egm (NVLink) or gpu/cpu (RDMA)"
             )
         if config.placement == EngramPlacement.EGM and not config.peer_group_size:
             raise ValueError("--engram-config: EGM placement requires a peer group.")
@@ -119,13 +128,12 @@ class EngramConfig:
             raise ValueError(
                 "--engram-config: direct lookup requires external placement."
             )
-        if config.lookup == EngramLookup.PEER_READ and config.placement not in (
-            EngramPlacement.GPU,
-            EngramPlacement.EGM,
+        if (
+            config.lookup == EngramLookup.PEER_READ
+            and not config.peer_group_size
+            and config.placement != EngramPlacement.GPU
         ):
-            raise ValueError(
-                "--engram-config: lookup 'peer_read' needs GPU or EGM placement."
-            )
+            raise ValueError("--engram-config: local 'peer_read' needs GPU placement.")
         if (
             config.replication == EngramReplication.PER_NODE
             and config.placement != EngramPlacement.CPU
@@ -134,3 +142,19 @@ class EngramConfig:
                 "--engram-config: replication 'per_node' needs placement 'cpu'."
             )
         return config
+
+
+def validate_peer_topology(cfg, *, require_tp1: bool = False) -> None:
+    if (
+        cfg.pp_size != 1
+        or cfg.dp_size != 1
+        or cfg.attn_cp_size != 1
+        or cfg.speculative_algorithm is not None
+        or cfg.enable_two_batch_overlap
+        or (require_tp1 and cfg.tp_size != 1)
+    ):
+        tp = "TP/PP/DP/CP=1" if require_tp1 else "PP/DP/CP=1"
+        raise ValueError(
+            f"Engram peer groups require {tp}, no speculative decoding "
+            "and no two-batch overlap."
+        )

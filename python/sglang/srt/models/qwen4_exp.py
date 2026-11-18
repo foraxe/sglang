@@ -99,7 +99,11 @@ from sglang.srt.models.qwen4_exp_ple_table import (
     make_ple_file_prefetcher,
     make_ple_file_rss_trimmer,
 )
-from sglang.srt.runtime_context import get_parallel, linear_attn_parallel_group
+from sglang.srt.runtime_context import (
+    get_exec,
+    get_parallel,
+    linear_attn_parallel_group,
+)
 from sglang.srt.utils import get_bool_env_var, is_cuda, is_hip, logger
 
 _is_cuda = is_cuda()
@@ -632,9 +636,30 @@ class Qwen4ExpNGramEmbedding(nn.Module):
         )
         ngram_prefix = f"{prefix}.ngram_embedding" if prefix else "ngram_embedding"
         offload_embedding = bool(config.ple_offload_embedding)
+        peer_config = get_exec().offload.engram_config
+        peer_enabled = bool(peer_config and peer_config.peer_group_size)
+        if peer_enabled:
+            parallel = get_parallel()
+            if any(
+                getattr(parallel, key) != 1
+                for key in (
+                    "tp_size",
+                    "pp_size",
+                    "dp_size",
+                    "attn_dp_size",
+                    "attn_cp_size",
+                )
+            ):
+                raise ValueError("shared PLE requires TP/PP/DP/CP size 1")
+            if offload_embedding:
+                raise ValueError("shared PLE cannot use ple_offload_embedding")
+            if not _ple_table_is_fp8(config, quant_config, ngram_prefix):
+                raise ValueError("shared PLE requires declared FP8 embedding storage")
         # Offload only needs this embedding's metadata: build it on meta so the
         # shard is never allocated on the device.
-        with torch.device("meta") if offload_embedding else nullcontext():
+        with (
+            torch.device("meta") if offload_embedding or peer_enabled else nullcontext()
+        ):
             ngram_embedding = VocabParallelEmbedding(
                 padded_vocab_size,
                 self.head_dim_per_ngram,
@@ -650,7 +675,11 @@ class Qwen4ExpNGramEmbedding(nn.Module):
         ngram_embedding.register_buffer(
             "weight_scale", torch.ones(1, dtype=torch.bfloat16), persistent=True
         )
-        if offload_embedding:
+        if peer_enabled:
+            ngram_embedding = Qwen4ExpPeerEmbedding(
+                ngram_embedding, peer_config, self.ngram_heads, ngram_prefix
+            )
+        elif offload_embedding:
             ngram_embedding = Qwen4ExpPinnedHostEmbedding(
                 ngram_embedding,
                 backend=getattr(config, "ple_offload_backend", "pinned"),
@@ -1043,6 +1072,67 @@ class Qwen4ExpPinnedHostEmbedding(VocabParallelEmbedding):
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self.reduce(self.gather(input_ids))
+
+
+class Qwen4ExpPeerEmbedding(nn.Module):
+    """An FP8 PLE table sharded across independently running peers."""
+
+    def __init__(self, embedding, config, heads, name):
+        super().__init__()
+        from sglang.srt.engram_share.pool import get_peer_pool
+        from sglang.srt.engram_share.vmm.peer_group import join_peers
+
+        group = join_peers(config.peer_group_store, config.peer_group_size)
+        self.pool = get_peer_pool(
+            group,
+            config.peer_group_transport,
+            config.placement,
+            config.peer_group_max_tokens * heads,
+            embedding.embedding_dim,
+            max_tables=1,
+        )
+        self.table = self.pool.table(
+            embedding.org_vocab_size, embedding.embedding_dim, name
+        )
+        self.org_vocab_size = embedding.org_vocab_size
+        self.embedding_dim = embedding.embedding_dim
+        self.row_start = self.table.row_start
+        self.weight = nn.Parameter(
+            self.table.shard[:, : embedding.embedding_dim].view(torch.float8_e4m3fn),
+            requires_grad=False,
+        )
+        self.register_buffer("weight_scale", embedding.weight_scale, persistent=True)
+        self.loaded_ranges = []
+
+    def load_rows(self, rows, start, end):
+        first = max(start, self.row_start)
+        last = min(end, self.row_start + self.weight.shape[0])
+        if first < last:
+            self.weight.data[first - self.row_start : last - self.row_start].copy_(
+                rows[first - start : last - start].to(self.weight.device)
+            )
+            self.loaded_ranges.append((first, last))
+
+    def publish(self):
+        end = self.row_start
+        for first, last in sorted(self.loaded_ranges):
+            if first > end:
+                break
+            end = max(end, last)
+        if end != self.row_start + self.weight.shape[0]:
+            raise ValueError(
+                "shared PLE checkpoint does not cover the local table shard"
+            )
+        self.pool.ready(self.table)
+
+    def forward(self, input_ids):
+        rows = self.pool.lookup_rows(self.table, input_ids)
+        return (
+            rows[..., : self.embedding_dim]
+            .contiguous()
+            .view(torch.float8_e4m3fn)
+            .to(torch.bfloat16)
+        )
 
 
 class Qwen4ExpPLELayer(nn.Module):
@@ -2400,6 +2490,9 @@ class Qwen4ExpForConditionalGeneration(Qwen3VLForConditionalGeneration):
         def copy_ple_rows_to_tp_embedding(
             emb, loaded_weight: torch.Tensor, row_start: int, row_end: int
         ) -> None:
+            if isinstance(emb, Qwen4ExpPeerEmbedding):
+                emb.load_rows(loaded_weight, row_start, row_end)
+                return
             tp_start = emb.shard_indices.org_vocab_start_index
             tp_end = emb.shard_indices.org_vocab_end_index
             ov_start = max(row_start, tp_start)
@@ -2428,6 +2521,11 @@ class Qwen4ExpForConditionalGeneration(Qwen3VLForConditionalGeneration):
             if ple_mod is None:
                 return False
             emb = ple_mod.ngram_embedding
+            if (
+                isinstance(emb, Qwen4ExpPeerEmbedding)
+                and loaded_weight.dtype != torch.float8_e4m3fn
+            ):
+                raise ValueError("shared PLE requires FP8 checkpoint shards")
             if (
                 loaded_weight.dtype == torch.float8_e4m3fn
                 and emb.weight.dtype != torch.float8_e4m3fn
@@ -2672,6 +2770,10 @@ class Qwen4ExpForConditionalGeneration(Qwen3VLForConditionalGeneration):
                         )
                         continue
             loaded_params.add(name)
+
+        for ple_mod in ple_modules.values():
+            if isinstance(ple_mod.ngram_embedding, Qwen4ExpPeerEmbedding):
+                ple_mod.ngram_embedding.publish()
 
         loaded_params.update(loaded_buffers)
         loaded_params.update(loaded_shard_params)

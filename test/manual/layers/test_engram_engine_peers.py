@@ -3,6 +3,7 @@
 import argparse
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
 import torch.multiprocessing as mp
@@ -10,11 +11,12 @@ from cuda.bindings import driver as cu
 
 from sglang.srt.arg_groups.engram_config import EngramConfig
 from sglang.srt.layers.engram import EngramEmbedding
+from sglang.srt.models.qwen4_exp import Qwen4ExpPeerEmbedding
 from sglang.srt.runtime_context import get_context, get_parallel
 from sglang.srt.utils.cuda_vmm_utils import check_drv
 
 
-def worker(device, store, egm):
+def worker(device, store, transport, placement):
     torch.cuda.set_device(device)
     rows, dim = 16, 256
     full = (torch.arange(rows * 2 * dim, device="cuda").view(-1, dim) % 97 - 48).to(
@@ -26,9 +28,11 @@ def worker(device, store, egm):
     config = EngramConfig.from_dict(
         dict(
             lookup="peer_read",
-            placement="egm" if egm else "gpu",
+            placement=placement,
             peer_group_size=2,
             peer_group_store=store,
+            peer_group_transport=transport,
+            peer_group_max_tokens=32,
         )
     )
     assert not torch.distributed.is_initialized()
@@ -42,23 +46,33 @@ def worker(device, store, egm):
         get_parallel().override(tp_rank=0),
     ):
         table = EngramEmbedding(rows * 2, dim, 1, (0, rows, rows * 2))
-        group = table.peer.group
+        group = table.pool.group
         assert table.row_start == group.rank_in_group * rows
         assert table.weight.shape == (rows, dim)
         table.weight.weight_loader(table.weight, full.cpu())
         table.scale.weight_loader(table.scale, scales)
         table.finish_load("layer.1")
 
-    prop = check_drv(
-        cu.cuMemGetAllocationPropertiesFromHandle(table.peer.handle),
-        "query Engram shard backing",
-    )
-    location = cu.CUmemLocationType
-    assert prop.location.type == (
-        location.CU_MEM_LOCATION_TYPE_HOST_NUMA
-        if egm
-        else location.CU_MEM_LOCATION_TYPE_DEVICE
-    )
+    if placement == "cpu":
+        assert table.weight.device.type == "cpu"
+    else:
+        handle = check_drv(
+            cu.cuMemRetainAllocationHandle(table.weight.data_ptr()),
+            "retain shard allocation",
+        )
+        try:
+            prop = check_drv(
+                cu.cuMemGetAllocationPropertiesFromHandle(handle),
+                "query Engram shard backing",
+            )
+            location = cu.CUmemLocationType
+            assert prop.location.type == (
+                location.CU_MEM_LOCATION_TYPE_HOST_NUMA
+                if placement == "egm"
+                else location.CU_MEM_LOCATION_TYPE_DEVICE
+            )
+        finally:
+            check_drv(cu.cuMemRelease(handle), "release retained shard handle")
 
     ids = torch.tensor([[0, 15, 16, 31]], device="cuda")
     assert torch.equal(table(ids), full.to(torch.bfloat16)[ids])
@@ -70,20 +84,52 @@ def worker(device, store, egm):
     graph.replay()
     assert torch.equal(output, full.to(torch.bfloat16)[ids])
     torch.cuda.synchronize()
+    if transport == "rdma":
+        compiled = torch.compile(table, fullgraph=True)
+        assert torch.equal(compiled(ids), full.to(torch.bfloat16)[ids])
+
+    embedding = SimpleNamespace(
+        org_vocab_size=rows * 2,
+        embedding_dim=160,
+        weight_scale=torch.ones(1, device="cuda", dtype=torch.bfloat16),
+    )
+    with get_context().override_server_args(
+        model_path="/test/checkpoint", revision="test"
+    ):
+        ple = Qwen4ExpPeerEmbedding(embedding, config, 4, "test.ple")
+    ple_full = full[:, :160].contiguous()
+    ple.load_rows(ple_full[:17].cpu(), 0, 17)
+    ple.load_rows(ple_full[17:].cpu(), 17, rows * 2)
+    ple.publish()
+    assert torch.equal(ple(ids), ple_full.to(torch.bfloat16)[ids])
+    graph = torch.cuda.CUDAGraph()
+    with torch.cuda.graph(graph):
+        output = ple(ids)
+    ids.copy_(ids.flip(1))
+    graph.replay()
+    assert torch.equal(output, ple_full.to(torch.bfloat16)[ids])
+    torch.cuda.synchronize()
+    if transport == "rdma":
+        compiled = torch.compile(ple, fullgraph=True)
+        assert torch.equal(compiled(ids), ple_full.to(torch.bfloat16)[ids])
+
     try:
-        group.exchange(("mismatched identity", group.rank_in_group), None)
+        group.group.exchange(("mismatched identity", group.rank_in_group), None)
     except ValueError as error:
         assert "disagree" in str(error)
     else:
         raise AssertionError("expected checkpoint identity mismatch")
-    print(
-        f"PASS peer {group.rank_in_group}: egm={egm}, eager and changed-ID graph replay"
-    )
+    print(f"PASS peer {group.rank_in_group}: {transport}/{placement}, Engram+PLE")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--egm", action="store_true")
+    parser.add_argument("--transport", choices=("nvlink", "rdma"), default="nvlink")
+    parser.add_argument("--placement", choices=("gpu", "egm", "cpu"), default="gpu")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory() as temp:
-        mp.spawn(worker, args=(str(Path(temp) / "peers"), args.egm), nprocs=2)
+        mp.spawn(
+            worker,
+            args=(str(Path(temp) / "peers"), args.transport, args.placement),
+            nprocs=2,
+        )

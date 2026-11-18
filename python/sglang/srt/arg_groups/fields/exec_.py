@@ -1159,13 +1159,15 @@ class ExecOffload(msgspec.Struct):
     engram_config: A[
         Optional[Dict[str, Any]],
         Arg(
-            help="Where the DeepSeek-V4.1 Engram tables live, as JSON: "
+            help="Storage and lookup for Engram and shared Qwen4 PLE tables, as JSON: "
             "'placement' gpu|cpu|external|egm, 'replication' none|per_node, 'lookup' "
             "auto|all_reduce|reduce_scatter|all_to_all|peer_read; an omitted key "
             "takes the first value. "
-            "Cross-engine peer_read uses peer_group_size and peer_group_store. "
+            "Cross-engine peer_read uses peer_group_size, peer_group_store and "
+            "peer_group_transport (nvlink or rdma). "
             "See docs/advanced_features/engram.",
             type_parser=json.loads,
+            resolvable=True,
         ),
     ] = None
 
