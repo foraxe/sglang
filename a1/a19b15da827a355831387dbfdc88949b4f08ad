@@ -1,0 +1,46 @@
+python/sglang/srt/arg_groups/fields/exec_.py
+  s_8476960beb8e18::t_fdf752a96c5787 1163
+  s_8476960beb8e18::t_131c7eb624aa67 1166
+python/sglang/srt/arg_groups/deepseek_v4_hook.py
+  s_8476960beb8e18::t_f9c05dd7115f97 128,130-133
+  s_8476960beb8e18::t_79b25efc115fff 123-127,129
+python/sglang/srt/arg_groups/engram_config.py
+  s_8476960beb8e18::t_fdf752a96c5787 12-13,87,91,94-95,127
+  s_8476960beb8e18::t_79b25efc115fff 50-51,73-77,82-86,88-90,92-93
+  s_8476960beb8e18::t_c6815766300bd9 78-81,122-124
+python/sglang/srt/layers/engram.py
+  s_8476960beb8e18::t_2b37fa7821ee1e 55,837,848-851,854,869-871,875,902,915-921,925-929,931-933,945,949-954,1002-1005,1128,1130-1131,1133-1134,1144,1280
+  s_8476960beb8e18::t_131c7eb624aa67 934-940,944
+  s_8476960beb8e18::t_fdf752a96c5787 832,836,844,855-863,867-868,930,1145,1149-1150
+  s_8476960beb8e18::t_c6815766300bd9 852-853,864-866,922-924,941-943,946-948,955-957,1135,1146-1148
+  s_8476960beb8e18::t_f9c05dd7115f97 1129,1132,1276-1279
+python/sglang/srt/model_executor/model_runner_components/weight_updater.py
+  s_8476960beb8e18::t_79b25efc115fff 58-59
+docs/docs/advanced_features/engram.mdx
+  s_8476960beb8e18::t_fdf752a96c5787 42,56-58
+  s_8476960beb8e18::t_c8532767e12eef 39-41,43-55
+  s_8476960beb8e18::t_e5ff255ebe874d 59
+python/sglang/srt/engram_share/vmm/peer_group.py
+  s_8476960beb8e18::t_79b25efc115fff 1-36
+test/manual/layers/test_engram_engine_peers.py
+  s_8476960beb8e18::t_1c79a563910c5f 9,11-14,26-36,41-50,52-57,61-62,64,67,73-78
+  s_8476960beb8e18::t_c8532767e12eef 1-2,4-8,10,15-16,18-19,51,63,65-66,68-72,82-84,88
+  s_8476960beb8e18::t_fdf752a96c5787 3,17,85-87,89
+  s_8476960beb8e18::t_c6815766300bd9 20-25,37-40,58-60,79-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a1a19b15da827a355831387dbfdc88949b4f08ad",
+  "prompts": {},
+  "sessions": {
+    "s_8476960beb8e18": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1ed57-844a-7d41-81c3-ccda2a5e5a39",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
