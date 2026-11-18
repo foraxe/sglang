@@ -44,6 +44,15 @@ def main():
             table.finish_load(0, int(count))
             tables.append(table)
             reader = table.runtime
+            if (
+                layer == 1
+                and os.environ.get("ENGRAM_SMOKE_GATHER_NATIVE_CONTROL") == "1"
+            ):
+                if not hasattr(reader.context, "threshold"):
+                    raise RuntimeError("native-control mode requires the gather plan")
+                # Keep both endpoint sets and execution leases in both arms.
+                # Set this before the second layer primes either cached graph.
+                reader.context.threshold = reader.max_queries + 1
         if not reader.prefetch_enabled or not hasattr(reader.context, "graph_sizes"):
             raise RuntimeError("enable prefetch and the prepared READ plan")
         barrier = os.environ.get("ENGRAM_SMOKE_BARRIER_DIR")
