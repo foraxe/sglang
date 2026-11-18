@@ -52,6 +52,7 @@ from sglang.srt.distributed.device_communicators.cuda_wrapper import (
     find_loaded_library,
 )
 from sglang.srt.distributed.parallel_state import inplace_all_reduce
+from sglang.srt.engram_share.vmm.peer_group import join_peers
 from sglang.srt.environ import envs
 from sglang.srt.layers.dp_attention import (
     attn_cp_all_gather_into_tensor,
@@ -1059,9 +1060,9 @@ class EngramEmbedding(nn.Module):
         super().__init__()
         self.dim = dim
         self.tp_size = get_parallel().tp_size
-        tp_rank = get_parallel().tp_rank
+        config = resolve_engram_config(len(column_bounds) - 1)
         self.row_start, row_end = shard_range(
-            num_embeddings, column_bounds, tp_rank, self.tp_size
+            num_embeddings, column_bounds, get_parallel().tp_rank, self.tp_size
         )
         self.rows = row_end - self.row_start
         self.host_table: Optional[_HostTable] = None
@@ -1069,10 +1070,38 @@ class EngramEmbedding(nn.Module):
         self._sort_host_reads = False
         self.staged_by_scheduler = False
         self.peer: Optional[_PeerShards] = None
-        config = resolve_engram_config(len(column_bounds) - 1)
+        self.pool = None
+        self.pool_table = None
         self.lookup = config.lookup
         self._cols_per_rank = cols_per_rank(len(column_bounds) - 1, self.tp_size)
-        if config.lookup == EngramLookup.PEER_READ and self.tp_size > 1:
+        if config.peer_group_size:
+            from sglang.srt.engram_share.pool import get_peer_pool
+
+            assert config.peer_group_store is not None
+            group = join_peers(config.peer_group_store, config.peer_group_size)
+            row_bytes = dim + dim // FP8_BLOCK_SIZE
+            self.pool = get_peer_pool(
+                group,
+                config.peer_group_transport,
+                config.placement,
+                config.peer_group_max_tokens * (len(column_bounds) - 1),
+                row_bytes,
+            )
+            model = get_model()
+            self.pool_table = self.pool.table(
+                num_embeddings,
+                row_bytes,
+                f"{model.model_path}@{model.revision}:engram:{layer_id}",
+            )
+            shard = self.pool_table.shard
+            self.row_start, self.rows = self.pool_table.row_start, shard.shape[0]
+            self.weight = nn.Parameter(
+                shard[:, :dim].view(torch.float8_e4m3fn), requires_grad=False
+            )
+            self.scale = nn.Parameter(
+                shard[:, dim:].view(torch.float8_e8m0fnu), requires_grad=False
+            )
+        elif config.lookup == EngramLookup.PEER_READ and self.tp_size > 1:
             self.peer = _PeerShards(self.rows, dim, get_parallel().tp_group)
             weight, scale = self.peer.views()
             self.weight = nn.Parameter(weight, requires_grad=False)
@@ -1190,6 +1219,18 @@ class EngramEmbedding(nn.Module):
         rows = slice(self.row_start, self.row_start + self.rows)
         if self._shared:
             param.data[rows].copy_(loaded_weight[rows])
+        elif (
+            self.pool_table is not None and param.is_cuda and not param.is_contiguous()
+        ):
+            # CPU-to-CUDA copies into a strided VMM view may stage in HBM.
+            # Bound that temporary even for a Grace-backed shard.
+            source = loaded_weight[rows]
+            rows_per_copy = max(
+                1, (64 << 20) // (param.shape[1] * param.element_size())
+            )
+            for start in range(0, self.rows, rows_per_copy):
+                chunk = slice(start, start + rows_per_copy)
+                param.data[chunk].copy_(source[chunk])
         else:
             param.data.copy_(loaded_weight[rows])
         if self.host_table is not None:
@@ -1198,6 +1239,14 @@ class EngramEmbedding(nn.Module):
     def finish_load(self, label: str):
         """Collective in the shared layout and with peer shards: every rank calls
         it after loading."""
+        if self.pool_table is not None:
+            shard = self.pool_table.shard.data_ptr()
+            if (self.weight.data_ptr(), self.scale.data_ptr()) != (
+                shard,
+                shard + self.dim,
+            ):
+                raise RuntimeError("Engram weight must alias its peer VMM shard")
+            self.pool.ready(self.pool_table)
         if self.peer is not None:
             self.peer.connect(self.row_start, label)
         if self.host_table is not None:
@@ -1210,6 +1259,19 @@ class EngramEmbedding(nn.Module):
         *,
         cp_all_tokens: bool = False,
     ) -> torch.Tensor:
+        if self.pool_table is not None:
+            rows = self.pool.lookup_rows(self.pool_table, indices)
+            weights = rows[..., : self.dim].view(torch.float8_e4m3fn).float()
+            scales = (
+                rows[..., self.dim : self.pool_table.row_bytes]
+                .view(torch.float8_e8m0fnu)
+                .float()
+            )
+            return (
+                (weights.unflatten(-1, (-1, FP8_BLOCK_SIZE)) * scales.unsqueeze(-1))
+                .flatten(-2)
+                .to(torch.bfloat16)
+            )
         if self.peer is not None:
             assert self.peer.ready, "engram peer shards are mapped in finish_load"
             # Every shard is mapped here: read this rank's own tokens only, which

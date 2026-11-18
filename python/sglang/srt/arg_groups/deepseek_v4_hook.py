@@ -12,6 +12,7 @@ from sglang.srt.arg_groups.engram_config import (
     EngramPlacement,
     EngramReplication,
     cols_per_rank,
+    validate_peer_topology,
 )
 from sglang.srt.arg_groups.model_override_base import (
     attention_backends_of,
@@ -120,6 +121,8 @@ def _resolve_engram_config(server_args: ServerArgs) -> None:
         config = EngramConfig.from_dict(raw)
     if config.lookup == EngramLookup.PEER_READ and not get_platform().is_cuda:
         raise ValueError("--engram-config: lookup 'peer_read' needs CUDA.")
+    if config.peer_group_size:
+        validate_peer_topology(cfg)
     if config.placement == EngramPlacement.EXTERNAL:
         if not get_platform().is_cuda:
             raise ValueError("--engram-config: external placement needs CUDA.")
