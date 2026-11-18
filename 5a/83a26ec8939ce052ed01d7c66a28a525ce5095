@@ -1,0 +1,21 @@
+python/sglang/srt/engram_share/rdma/runtime.py
+  s_b02aaaf0b0d64c::t_ccb0697a651550 415
+  s_b02aaaf0b0d64c::t_0e9000c2ec8d9c 154,416-417
+  s_b02aaaf0b0d64c::t_6b46ce0e719b7c 418-428
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "5a83a26ec8939ce052ed01d7c66a28a525ce5095",
+  "prompts": {},
+  "sessions": {
+    "s_b02aaaf0b0d64c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a187d1-dc48-7243-b1c5-e64b7d932a1a",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
