@@ -1,0 +1,21 @@
+research/shared_engram_gather/samples.json
+  s_b02aaaf0b0d64c::t_d38be1f7d92d90 1-417
+research/shared_engram_gather/README.md
+  s_b02aaaf0b0d64c::t_15e7baddea88a6 1-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0aa2faac1ec66c2c68ab1df172bed0d069f8ad9b",
+  "prompts": {},
+  "sessions": {
+    "s_b02aaaf0b0d64c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a187d1-dc48-7243-b1c5-e64b7d932a1a",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
