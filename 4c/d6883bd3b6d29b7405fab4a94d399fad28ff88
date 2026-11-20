@@ -1,0 +1,37 @@
+test/registered/unit/mem_cache/test_hicache_egm.py
+  s_50a56558b692a1::t_28a60fc6a6a8c5 20
+  s_50a56558b692a1::t_971b23f186fcfd 366-371,375-384
+  s_50a56558b692a1::t_0eb7ae6fc81efd 164-192,444
+  s_50a56558b692a1::t_960ff74a0070e3 5,89,336-365,372-374,385-389,437
+  s_50a56558b692a1::t_20e31be61ceb2e 131-152,156-163,443
+  s_50a56558b692a1::t_6b9a5944e3e928 153-155
+docs/docs/advanced_features/hicache_design.mdx
+  s_50a56558b692a1::t_ba85d68e0cd66f 28,61,63
+python/sglang/srt/mem_cache/pool_host/egm.py
+  s_50a56558b692a1::t_3e2478d2d5e99b 138,291-301,303-304,400-401
+  s_50a56558b692a1::t_d2304fcf3688d6 214-217,330-332,338-341,345-349
+  s_50a56558b692a1::t_b898f6031d8c3f 9,139-142,150,155-158,213,218-219,307-308,318,324-325,333,342-343,357,361,363-369,371-372
+docs/docs/advanced_features/hicache_best_practices.mdx
+  s_50a56558b692a1::t_eb7ce9ed2474a1 11,26-27
+test/registered/unit/mem_cache/test_hicache_egm_config.py
+  s_50a56558b692a1::t_043e226f931478 35,43-46
+  s_50a56558b692a1::t_22cf5bf4a4364d 18-20,24-34,47
+  s_50a56558b692a1::t_5e84a634499f7b 36-42
+  s_50a56558b692a1::t_d2304fcf3688d6 21-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4cd6883bd3b6d29b7405fab4a94d399fad28ff88",
+  "prompts": {},
+  "sessions": {
+    "s_50a56558b692a1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1f727-90e9-7892-b537-093110c11ec7",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
