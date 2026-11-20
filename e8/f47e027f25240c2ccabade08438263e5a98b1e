@@ -1,0 +1,53 @@
+test/manual/mem_cache/test_egm_ipc.py
+  s_50a56558b692a1::t_faf22793906197 1-56
+test/registered/unit/mem_cache/test_hicache_egm.py
+  s_50a56558b692a1::t_6be25fc48377bb 63-67,85,92-96,116-117
+  s_50a56558b692a1::t_f8a8d5d3dc892d 8-10
+  s_50a56558b692a1::t_ad69a0b5e97da4 1,3-5,12,26-29,33-42,49-50,90,114-115
+  s_50a56558b692a1::t_e5be627302c574 30-32,43-48
+  s_50a56558b692a1::t_5157a3f3e1c1f3 101,107
+  s_50a56558b692a1::t_fc04836a8eb675 11
+  s_50a56558b692a1::t_505076ff2bfef5 51-60
+  s_50a56558b692a1::t_faf22793906197 2,6-7,13-25,61-62,68-84,86-89,91,97-100,102-106,108-113
+python/sglang/srt/mem_cache/hybrid_cache/hybrid_cache_controller.py
+  s_50a56558b692a1::t_505076ff2bfef5 481-483,487-489
+  s_50a56558b692a1::t_fc04836a8eb675 484-486
+python/sglang/srt/mem_cache/pool_host/base.py
+  s_50a56558b692a1::t_cb09980fa90a00 294-297
+docs/docs/advanced_features/hicache_best_practices.mdx
+  s_50a56558b692a1::t_ad69a0b5e97da4 18-27
+test/manual/mem_cache/test_egm_server.py
+  s_50a56558b692a1::t_0782ed50786919 1-22,27-44
+  s_50a56558b692a1::t_5ff8c296a86bd7 23-26
+python/sglang/kernels/jit/include/sgl_kernel/runtime.cuh
+  s_50a56558b692a1::t_901cc9080b2f68 134-140
+python/sglang/srt/mem_cache/pool_host/egm.py
+  s_50a56558b692a1::t_cb09980fa90a00 9,26-57,77,156-159
+  s_50a56558b692a1::t_37d035fc4103d9 13,16,142,146,183-184
+  s_50a56558b692a1::t_27f7b57b0b69a4 108-112,196-199,201
+  s_50a56558b692a1::t_e5be627302c574 160-163
+  s_50a56558b692a1::t_faf22793906197 1-5,7-8,10-12,14,18-25,58-76,78-100,107,113-141,143-145,147-155,164-182,185-195,200,202-204
+  s_50a56558b692a1::t_0782ed50786919 6,15,17,101-106
+python/sglang/srt/mem_cache/pool_host/common.py
+  s_50a56558b692a1::t_faf22793906197 26,115-118,187-194,549-555
+python/sglang/srt/environ.py
+  s_50a56558b692a1::t_faf22793906197 920
+python/sglang/kernels/aot/csrc/kvcacheio/transfer.cu
+  s_50a56558b692a1::t_901cc9080b2f68 30-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e8f47e027f25240c2ccabade08438263e5a98b1e",
+  "prompts": {},
+  "sessions": {
+    "s_50a56558b692a1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1f727-90e9-7892-b537-093110c11ec7",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
