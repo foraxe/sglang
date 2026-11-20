@@ -1,0 +1,21 @@
+docs/docs/advanced_features/hicache_best_practices.mdx
+  s_50a56558b692a1::t_9c2e8dce137a1d 20,23-24
+python/sglang/srt/mem_cache/pool_host/egm.py
+  s_50a56558b692a1::t_9c2e8dce137a1d 45,59,124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2f30c4b30c715bdc70c751bc8bb6989b352ac379",
+  "prompts": {},
+  "sessions": {
+    "s_50a56558b692a1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1f727-90e9-7892-b537-093110c11ec7",
+        "model": "gpt-6.1-terra"
+      },
+      "human_author": "yunzhi <ningyunxiao.nyx@antgroup.com>"
+    }
+  }
+}
